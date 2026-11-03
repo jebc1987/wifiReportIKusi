@@ -1,0 +1,21 @@
+# =====================================================================
+# Privacidad y Seguridad: Excluir capturas y reportes reales de red
+# (Evita subir usuarios corporativos, direcciones MAC, IPs o Hostnames)
+# =====================================================================
+*.csv
+*.pcap
+*.pcapng
+.loaded_files_cache.json
+
+# =====================================================================
+# Caché local de compilación y entorno Python / SO
+# =====================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+.portable_vendor_cache/
+.env
+.venv/
+venv/
+.DS_Store
+Thumbs.db

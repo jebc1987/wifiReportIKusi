@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cisco Wireless 3-in-1 Suite: Correlación + Clientes & Usuarios + Inventario APs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background-color: #090e1a; color: #e2e8f0; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .glass { background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(10px); border: 1px solid rgba(51, 65, 85, 0.65); }
+    .dash-btn.active { background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; border-color: #60a5fa; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.35); }
+    .retry-chip.active { background: linear-gradient(135deg, #f43f5e, #e11d48); color: #fff; border-color: #fda4af; box-shadow: 0 2px 10px rgba(244, 63, 94, 0.35); }
+    .clickable-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    summary { list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    .chart-zoomable-card, .chart-zoomable-card canvas { cursor: pointer; }
+    .chart-zoomable-card { position: relative; transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease; }
+    .chart-zoomable-card:hover { border-color: rgba(56, 189, 248, 0.65) !important; box-shadow: 0 8px 24px rgba(14, 165, 233, 0.16); }
+    .chart-zoomable-card .btn-expand-chart { opacity: 0.7; transition: opacity 0.15s ease, background-color 0.15s ease, transform 0.15s ease; }
+    .chart-zoomable-card:hover .btn-expand-chart { opacity: 1; background-color: rgba(14, 165, 233, 0.22); }
+    #chart-spotlight-slot .chart-zoomable-card { cursor: default; border: none !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
+    #chart-spotlight-slot .chart-zoomable-card canvas { cursor: pointer; }
+    #chart-spotlight-slot .chart-zoomable-card .btn-expand-chart { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Barra Superior Compacta: Título + Salto Rápido (Scroll) + Carga CSV + Filtros en 1 Línea -->
+  <header class="glass sticky top-0 z-30 px-4 py-2 border-b border-slate-800/90 shadow-lg space-y-2">
+    <!-- Fila 1: Marca + Navegación rápida por Scroll + Botones CSV -->
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-sm">
+          <i class="fa-solid fa-wifi"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm font-extrabold tracking-tight text-white">Cisco Wi-Fi Clientes</h1>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-emerald-300 border border-slate-700 font-semibold">
+              <strong id="active-count" class="text-white">0</strong> / <strong id="total-count">0</strong> sesiones
+            </span>
+            <span id="active-day-mode-indicator" class="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-500/15 text-teal-300 border border-teal-500/30">
+              TOTAL ACUMULADO
+            </span>
+          </div>
+          <span class="hidden"><strong id="active-filename"></strong><strong id="active-ap-filename"></strong><span id="active-ap-count">0</span><span id="total-ap-count">0</span></span>
+        </div>
+      </div>
+
+      <!-- Navegación rápida para recorrer la página con Scroll suave -->
+      <nav class="hidden xl:flex items-center gap-1.5 bg-slate-900/90 px-2 py-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
+        <a href="#sec-resumen" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-emerald-300 transition">1. Resumen y Días</a>
+        <a href="#hierarchy-explorer-section" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition">2. Jerarquía Fallas (Piso➔AP➔Cliente)</a>
+        <a href="#sec-causas" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-amber-300 transition">3. Tráfico y Consumo</a>
+        <a href="#clients-table-section" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-indigo-300 transition">4. Tabla Clientes</a>
+      </nav>
+
+      <!-- Botones compactos de gestión CSV -->
+      <div class="flex flex-wrap items-center gap-1.5">
+        <label class="cursor-pointer px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold transition flex items-center gap-1 shadow" title="Sumar 1 o varios CSVs a la data actual">
+          <i class="fa-solid fa-plus"></i> Subir / Acumular CSV
+          <input type="file" id="csv-upload" accept=".csv" multiple class="hidden" />
+        </label>
+        <label class="cursor-pointer px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold transition flex items-center gap-1 shadow" title="Reemplazar por nuevos CSV">
+          <i class="fa-solid fa-folder-open"></i> Reemplazar
+          <input type="file" id="csv-upload-replace" accept=".csv" multiple class="hidden" />
+        </label>
+        <input type="file" id="ap-csv-upload" accept=".csv" class="hidden" />
+        <button type="button" onclick="clearAllCsvData()" class="px-2 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-[11px] font-semibold transition flex items-center gap-1" title="Borrar todos los CSV">
+          <i class="fa-solid fa-trash-can"></i> Borrar CSVs
+        </button>
+      </div>
+    </div>
+
+    <!-- Fila 2: Filtros Rápidos Esenciales en 1 Sola Línea + Desplegable de Avanzados -->
+    <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-800/80 text-xs">
+      <div class="flex flex-wrap items-center gap-1.5 flex-1">
+        <!-- Chips de Día / Total -->
+        <div id="top-day-total-chips" class="flex flex-wrap items-center gap-1 mr-1"></div>
+
+        <!-- Selector Tipo de Dispositivo: Corporativo (COL-) / Externo / Todo -->
+        <input type="hidden" id="filter-corp" value="ALL" />
+        <div id="top-corp-filter-chips" class="corp-filter-chips flex flex-wrap items-center gap-1 mr-1"></div>
+
+        <!-- Buscador rápido -->
+        <input type="text" id="filter-q" placeholder="🔍 Buscar usuario, MAC, AP, piso..." class="w-44 sm:w-52 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white" />
+
+        <!-- Piso -->
+        <select id="filter-client-floor" class="px-2 py-1 rounded-lg bg-slate-900 border border-emerald-500/40 text-xs text-white" title="Filtrar por Piso">
+          <option value="ALL">Todos los Pisos</option>
+        </select>
+
+        <!-- AP -->
+        <select id="filter-ap" class="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white max-w-[150px]" title="Filtrar por AP">
+          <option value="ALL">Todos los APs</option>
+        </select>
+
+        <!-- Tipo de Falla -->
+        <select id="filter-alert-cat-select" onchange="selectHierarchyIssueType(this.value)" class="px-2 py-1 rounded-lg bg-slate-900 border border-rose-500/50 text-xs text-rose-200 font-semibold" title="Filtrar por Tipo de Falla">
+          <option value="ALL">⚡ Tipo de Falla: Todas</option>
+          <option value="Retransmisiones Altas (>=25%)">🔥 Retries >= 25%</option>
+          <option value="Auth 802.1X: Red / ISE (>=6s)">🔑 Auth ISE / Red >= 6s</option>
+          <option value="Auth 802.1X: Espera Suplicante (>=6s)">💻 Espera Suplicante >= 6s</option>
+          <option value="Asociación Lenta (>2s)">🔗 Asociación > 2s</option>
+          <option value="DHCP Lento (>2s)">🌐 DHCP > 2s</option>
+          <option value="Roaming Lento (>3s)">🔄 Roaming > 3s</option>
+          <option value="Latencia QoS Alta (Voz/Datos)">📶 Latencia Voz / Datos</option>
+          <option value="Señal RF Débil / Sticky">📡 Señal Débil (< -79 dBm)</option>
+        </select>
+
+        <!-- Rango Retries -->
+        <select id="filter-retry-range" class="px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white" title="Rango de Retransmisiones">
+          <option value="ALL">Rango % Retries</option>
+          <option value="0-10">0% - 10% (Óptimo)</option>
+          <option value="11-20">11% - 20% (Normal)</option>
+          <option value="21-24">21% - 24% (Elevado)</option>
+          <option value="25-30">25% - 30% (Alto)</option>
+          <option value="31-100">> 30% (Crítico)</option>
+          <option value="20-100">>= 20% (Contención)</option>
+          <option value="25-100">>= 25% (Críticos SLA)</option>
+        </select>
+
+        <!-- Checkboxes rápidos -->
+        <label class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 font-semibold cursor-pointer">
+          <input type="checkbox" id="filter-issues" class="rounded bg-slate-800 border-slate-600" />
+          <span>Solo con Fallas</span>
+        </label>
+        <label class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-300 cursor-pointer">
+          <input type="checkbox" id="filter-exclude-disconnected" class="rounded bg-slate-800 border-slate-600" />
+          <span>Ocultar Disconnected</span>
+        </label>
+      </div>
+
+      <div class="flex items-center gap-1.5">
+        <button id="btn-reset-filters" class="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold border border-amber-500/40 transition flex items-center gap-1">
+          <i class="fa-solid fa-arrow-rotate-left"></i> Volver al General (Todos)
+        </button>
+
+        <!-- Menú desplegable compacto para ver archivos CSV individuales y filtros extra -->
+        <details class="relative">
+          <summary class="list-none cursor-pointer px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[11px] font-semibold border border-slate-700 transition flex items-center gap-1">
+            <i class="fa-solid fa-sliders"></i> CSVs / Más Filtros
+          </summary>
+          <div class="absolute right-0 mt-2 w-[340px] sm:w-[520px] p-3.5 rounded-xl bg-slate-950 border border-slate-700 shadow-2xl z-50 space-y-3">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-bold text-emerald-400">Archivos CSV Cargados (clic en ✏️ para cambiar fecha):</span>
+                <button type="button" onclick="resetDefaultCsv()" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300">CSV Ejemplo</button>
+              </div>
+              <div id="loaded-csv-chips" class="flex flex-wrap items-center gap-1.5"></div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-800">
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-0.5">Día / Total</label>
+                <select id="filter-day-label" class="w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white">
+                  <option value="ALL">TOTAL (Todos)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-0.5">Calidad RF</label>
+                <select id="filter-rf" class="w-full px-2 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white"><option value="ALL">Todas</option></select>
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-0.5">Protocolo / SO</label>
+                <div class="grid grid-cols-2 gap-1">
+                  <select id="filter-protocol" class="w-full px-1 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white"><option value="ALL">Proto</option></select>
+                  <select id="filter-os" class="w-full px-1 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white"><option value="ALL">SO</option></select>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] text-slate-400 mb-0.5">Retries Min/Max</label>
+                <div class="grid grid-cols-2 gap-1">
+                  <input type="number" id="filter-retries" min="0" max="100" placeholder="Min" class="w-full px-1.5 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white" />
+                  <input type="number" id="filter-max-retries" min="0" max="100" placeholder="Max" class="w-full px-1.5 py-1 rounded bg-slate-900 border border-slate-700 text-xs text-white" />
+                </div>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-slate-800 flex flex-wrap items-center gap-1">
+              <span class="text-[10px] text-slate-400 mr-1">Rangos Retries:</span>
+              <button type="button" data-retry-chip="ALL" class="retry-chip active px-2 py-0.5 rounded bg-slate-800 text-slate-200 text-[10px]">Todos</button>
+              <button type="button" data-retry-chip="0-10" class="retry-chip px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 text-[10px]">0-10%</button>
+              <button type="button" data-retry-chip="11-20" class="retry-chip px-2 py-0.5 rounded bg-sky-950/60 text-sky-300 text-[10px]">11-20%</button>
+              <button type="button" data-retry-chip="21-24" class="retry-chip px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 text-[10px]">21-24%</button>
+              <button type="button" data-retry-chip="25-30" class="retry-chip px-2 py-0.5 rounded bg-orange-950/60 text-orange-300 text-[10px]">25-30%</button>
+              <button type="button" data-retry-chip="31-100" class="retry-chip px-2 py-0.5 rounded bg-rose-950/60 text-rose-300 text-[10px]">>30%</button>
+              <button type="button" data-retry-chip="25-100" class="retry-chip px-2 py-0.5 rounded bg-rose-600/30 text-rose-200 text-[10px] font-bold">>=25%</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Inputs ocultos de estado interno -->
+    <select id="filter-status" class="hidden"><option value="ALL">Todos</option></select>
+    <input type="hidden" id="filter-hour-slot" value="ALL" />
+    <input type="hidden" id="filter-session-bucket" value="ALL" />
+    <input type="hidden" id="filter-alert-cat" value="ALL" />
+    <input type="hidden" id="filter-alarm-tag" value="ALL" />
+    <input type="hidden" id="filter-source-file" value="ALL" />
+  </header>
+
+  <main class="flex-1 max-w-[1680px] w-full mx-auto px-6 py-4 space-y-5">
+
+    <!-- Selector oculto (la app opera 100% sobre el Dashboard de Clientes) -->
+    <div class="hidden">
+      <button data-dash="dash-clients" class="dash-btn active"></button>
+      <button data-dash="dash-correlation" class="dash-btn"></button>
+      <button data-dash="dash-ap-inventory" class="dash-btn"></button>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DASHBOARD CORRELACIÓN CLIENTES & USUARIOS (CSV 1) ↔ APs (CSV 2)     -->
+    <!-- =================================================================== -->
+    <div id="dash-correlation" class="dash-panel hidden space-y-5">
+      <!-- Filtro Rápido por Piso en Correlación -->
+      <section class="glass rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-300">
+          <i class="fa-solid fa-building"></i> Filtro de Correlación por Piso (Extraído de Acrónimo AP / Ubicación)
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <select id="corr-filter-floor" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-medium">
+            <option value="ALL">Todos los Pisos del Edificio</option>
+          </select>
+          <button onclick="quickFilterRetries('25-100')" class="px-3 py-1.5 rounded-lg bg-rose-600/30 hover:bg-rose-600/50 border border-rose-500/40 text-rose-200 text-xs font-semibold transition flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate-right"></i> Ver Clientes con Retries >= 25%
+          </button>
+          <button onclick="quickFilterRetries('20-100')" class="px-3 py-1.5 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500/40 text-amber-200 text-xs font-semibold transition flex items-center gap-1.5">
+            <i class="fa-solid fa-bolt"></i> Ver Clientes con Retries >= 20%
+          </button>
+        </div>
+      </section>
+
+      <div id="corr-kpis" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+      <!-- Diagnósticos Cruzados entre CSV 1 y CSV 2 -->
+      <div class="glass rounded-xl p-4">
+        <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-magnifying-glass-chart text-indigo-400"></i> Diagnóstico Ejecutivo de Causa Raíz (Cruzando CSV 1 Clientes + CSV 2 Inventario APs CW9176I)
+        </h3>
+        <div id="corr-insights" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+      </div>
+
+      <!-- CORRELACIÓN AP CON ALTA INTERFERENCIA vs CLIENTES CON RETRANSMISIÓN -->
+      <div class="glass rounded-xl p-4 border border-rose-500/30 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-burst text-rose-400"></i> Correlación Directa: Interferencia RF del AP (CSV 2) vs. Clientes con Retransmisiones L2 (CSV 1)
+            </h3>
+            <p class="text-xs text-slate-400">Cruza el porcentaje de Interferencia y Utilización en 5 GHz de cada AP CW9176I con la tasa de Retries (%) y RSSI de los clientes asociados. <span class="text-amber-300 font-medium">Haz clic en cualquier fila o barra para filtrar en el Dashboard de Clientes.</span></p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+          <div class="lg:col-span-5 bg-slate-900/70 rounded-xl p-3 border border-slate-800">
+            <h4 class="text-xs font-semibold text-slate-300 mb-2">Interferencia 5GHz & Utilización del AP vs. % Retries de sus Clientes</h4>
+            <div class="h-64"><canvas id="chart-corr-int-retries"></canvas></div>
+          </div>
+
+          <div class="lg:col-span-7 overflow-x-auto max-h-72 overflow-y-auto bg-slate-900/70 rounded-xl p-3 border border-slate-800">
+            <h4 class="text-xs font-semibold text-rose-300 mb-2">Clientes Afectados por Retransmisiones (>= 20%) Cruzados con la Interferencia de su AP</h4>
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="sticky top-0 bg-slate-900">
+                <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+                  <th class="py-1.5 px-2">Cliente / Dispositivo</th>
+                  <th class="py-1.5 px-2">AP / Piso</th>
+                  <th class="py-1.5 px-2 text-center">Retries Cliente</th>
+                  <th class="py-1.5 px-2 text-center">RSSI / SNR Cliente</th>
+                  <th class="py-1.5 px-2 text-center">Interf. AP (5G / 2.4G)</th>
+                  <th class="py-1.5 px-2 text-center">Util. 5G AP</th>
+                  <th class="py-1.5 px-2">Causa Raíz RF Correlacionada</th>
+                </tr>
+              </thead>
+              <tbody id="table-int-vs-retries" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resumen Cruzado por Piso (Edificio Completo) -->
+      <div class="glass rounded-xl p-4 overflow-x-auto">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-building-user text-amber-400"></i> 1. Matriz de Correlación por Piso (Acrónimo AP: Ej. 301 → Piso 3, 906 → Piso 9, MEZ → Mezzanine)
+            </h3>
+            <p class="text-xs text-slate-400">Compara por piso los APs en Inventario (CSV 2) vs APs con sesiones activas (CSV 1), Shadow APs, Utilización 5GHz y Retransmisiones. Haz clic en un piso para filtrarlo.</p>
+          </div>
+        </div>
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+              <th class="py-2 px-2.5">Piso / Área</th>
+              <th class="py-2 px-2.5 text-center">APs en CSV 2 (Inv.)</th>
+              <th class="py-2 px-2.5 text-center">APs en CSV 1 (Activos)</th>
+              <th class="py-2 px-2.5 text-center">Shadow APs (Fuera de CSV 2)</th>
+              <th class="py-2 px-2.5 text-center">Clientes (Inv. vs Sesiones CSV 1)</th>
+              <th class="py-2 px-2.5 text-center">Utilización 5GHz Prom.</th>
+              <th class="py-2 px-2.5 text-center">Interferencia 5GHz Prom.</th>
+              <th class="py-2 px-2.5 text-center">Retries Clientes Prom.</th>
+              <th class="py-2 px-2.5 text-center">Clientes Retries >= 25%</th>
+              <th class="py-2 px-2.5 text-center">Equipos Wi-Fi 6E en 5G</th>
+            </tr>
+          </thead>
+          <tbody id="table-corr-floors" class="divide-y divide-slate-800/70"></tbody>
+        </table>
+      </div>
+
+      <!-- Matriz de APs Correlacionados en las 2 Fuentes -->
+      <div class="glass rounded-xl p-4 overflow-x-auto">
+        <div class="mb-3">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-server text-sky-400"></i> 2. Correlación de Access Points (Inventario RF CW9176I ↔ Sesiones de Clientes CSV 1)
+          </h3>
+          <p class="text-xs text-slate-400">Haz clic en cualquier AP para abrir el Dashboard de Clientes filtrado por ese Access Point.</p>
+        </div>
+        <div class="max-h-96 overflow-y-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-slate-900 z-10">
+              <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+                <th class="py-2.5 px-2.5">AP Name / Piso (Acrónimo)</th>
+                <th class="py-2.5 px-2.5">Switch / Velocidad (CSV 2)</th>
+                <th class="py-2.5 px-2.5">IP / Base Radio MAC</th>
+                <th class="py-2.5 px-2.5 text-center">Clientes (Inv. vs CSV 1)</th>
+                <th class="py-2.5 px-2.5 text-center">Utilización Canal 5G / 2.4G</th>
+                <th class="py-2.5 px-2.5 text-center">Interferencia / Ruido 5G</th>
+                <th class="py-2.5 px-2.5 text-center">Retries Clientes (Prom / >=25%)</th>
+                <th class="py-2.5 px-2.5 text-center">Clientes Wi-Fi 6E</th>
+                <th class="py-2.5 px-2.5">Fuentes Cruzadas</th>
+              </tr>
+            </thead>
+            <tbody id="table-corr-aps" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Matriz de Clientes Correlacionados con su AP -->
+      <div class="glass rounded-xl p-4 overflow-x-auto">
+        <div class="mb-3">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-user-shield text-emerald-400"></i> 3. Correlación de Usuarios y Dispositivos (Sesión Cliente CSV 1 ↔ Salud de Radio y Switch del AP CSV 2)
+          </h3>
+          <p class="text-xs text-slate-400">Muestra para cada cliente el estado RF y el Switch de su AP asociado, junto con el diagnóstico cruzado.</p>
+        </div>
+        <div class="max-h-96 overflow-y-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-slate-900 z-10">
+              <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+                <th class="py-2.5 px-2.5">Usuario / Hostname</th>
+                <th class="py-2.5 px-2.5">MAC / IPv4</th>
+                <th class="py-2.5 px-2.5">AP Asociado / Piso</th>
+                <th class="py-2.5 px-2.5">Switch / Enlace AP</th>
+                <th class="py-2.5 px-2.5 text-center">Utilización / Interf. 5G AP</th>
+                <th class="py-2.5 px-2.5 text-center">Estado / Health</th>
+                <th class="py-2.5 px-2.5 text-center">RSSI / SNR Cliente</th>
+                <th class="py-2.5 px-2.5 text-center">Retries Cliente</th>
+                <th class="py-2.5 px-2.5">Diagnóstico Correlacionado</th>
+                <th class="py-2.5 px-2.5 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="table-corr-clients" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DASHBOARD PRINCIPAL (FLUJO LIMPIO EN 5 SECCIONES FÁCILES DE RECORRER) -->
+    <!-- =================================================================== -->
+    <div id="dash-clients" class="dash-panel space-y-5">
+
+      <!-- Barra de Progreso de Carga CSV (se muestra solo al subir/limpiar) -->
+      <section id="csv-upload-status-panel" class="hidden glass rounded-xl p-3.5 border border-emerald-500/50 shadow-lg transition-all">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-1.5">
+          <div class="flex items-center gap-2.5">
+            <div id="csv-status-icon" class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300 text-xs">
+              <i class="fa-solid fa-spinner fa-spin"></i>
+            </div>
+            <div>
+              <div id="csv-status-title" class="text-xs font-bold text-white">Procesando archivos CSV...</div>
+              <div id="csv-status-subtitle" class="text-[11px] text-slate-300">Normalizando datos...</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="csv-progress-pct" class="text-xs font-extrabold text-emerald-300 font-mono">0%</span>
+            <button type="button" onclick="hideCsvStatusPanel()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px]">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
+          <div id="csv-progress-bar" class="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-sky-400 transition-all duration-200" style="width: 0%"></div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- 1. RESUMEN EJECUTIVO Y COMPARATIVA POR DÍAS                         -->
+      <!-- =================================================================== -->
+      <div id="sec-resumen" class="space-y-4 scroll-mt-28">
+        <!-- 6 KPIs Principales -->
+        <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" id="kpi-cards"></section>
+
+        <!-- Comparativa por Días Resumida -->
+        <div id="daily-comparison-section" class="glass rounded-xl p-4 border border-teal-500/40 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/40 text-xs flex items-center justify-center font-extrabold">1</span>
+              <i class="fa-solid fa-calendar-days text-teal-400"></i> Resumen por Día vs. Total Acumulado
+            </h3>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="corp-filter-chips flex flex-wrap items-center gap-1.5"></div>
+              <div id="daily-delta-banner" class="text-xs"></div>
+              <div id="day-filter-chips" class="hidden"></div>
+            </div>
+          </div>
+
+          <!-- Tabla Comparativa Día a Día (Directa y compacta) -->
+          <div class="bg-slate-900/70 rounded-xl p-3 border border-slate-800 overflow-x-auto">
+            <div class="max-h-72 overflow-y-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead class="sticky top-0 bg-slate-900 z-10">
+                  <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+                    <th class="py-1.5 px-2">Día / Etiqueta</th>
+                    <th class="py-1.5 px-2">Archivo(s) CSV</th>
+                    <th class="py-1.5 px-2 text-center">Usuarios / Sesiones</th>
+                    <th class="py-1.5 px-2 text-center text-emerald-400">Sanos (% Salud)</th>
+                    <th class="py-1.5 px-2 text-center text-rose-400">Con Fallas (% Fallo)</th>
+                    <th class="py-1.5 px-2 text-center">Retries Prom / % Salud RF</th>
+                    <th class="py-1.5 px-2 text-center">3 Procesos (Asoc / Auth / DHCP)</th>
+                    <th class="py-1.5 px-2 text-right">Tráfico</th>
+                    <th class="py-1.5 px-2 text-sky-300">AP / Piso Más Usuarios</th>
+                    <th class="py-1.5 px-2">Piso / AP Más Fallas</th>
+                  </tr>
+                </thead>
+                <tbody id="table-daily-comparison" class="divide-y divide-slate-800/70"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Gráficas Comparativas por Día -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div class="bg-slate-900/80 rounded-xl p-3 border border-slate-800">
+              <div class="flex flex-wrap items-center justify-between gap-1 mb-1">
+                <h4 class="text-xs font-semibold text-slate-200">% Sanos vs. % Tipos de Fallas por Día (Multicolor)</h4>
+                <span id="badge-daily-health-total" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"></span>
+              </div>
+              <div class="h-44"><canvas id="chart-daily-failures"></canvas></div>
+            </div>
+            <div class="bg-slate-900/80 rounded-xl p-3 border border-rose-500/30">
+              <div class="flex flex-wrap items-center justify-between gap-1 mb-1">
+                <h4 class="text-xs font-semibold text-slate-200">Usuarios, % Fallas Retries (>=25%), Promedio y Tráfico (GB)</h4>
+                <span id="badge-daily-retries-health-total" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40"></span>
+              </div>
+              <div class="h-44"><canvas id="chart-daily-retries"></canvas></div>
+            </div>
+            <div class="bg-slate-900/80 rounded-xl p-3 border border-amber-500/30">
+              <h4 class="text-xs font-semibold text-slate-200 mb-1">Auth 802.1X (ms) y Tráfico por Día</h4>
+              <div class="h-44"><canvas id="chart-daily-auth-traffic"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- 2. JERARQUÍA DE FALLAS: TOP PISOS ➔ APs ➔ CLIENTES                 -->
+      <!-- =================================================================== -->
+      <div id="hierarchy-explorer-section" class="glass rounded-xl p-4 border border-emerald-500/50 space-y-3 scroll-mt-28">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs flex items-center justify-center font-extrabold">2</span>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-sitemap text-emerald-400"></i>
+                Jerarquía de Fallas: Top Pisos ➔ APs del Piso ➔ Clientes
+              </h3>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Botón visible para volver a la vista general cuando se ha filtrado un Piso, AP o Tipo de Falla -->
+            <button type="button" id="btn-hier-back-general" onclick="resetToGeneralView()" class="hidden px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-200 shadow-lg transition items-center gap-1.5">
+              <i class="fa-solid fa-arrow-left"></i>
+              <span>Volver al General (Ver Todos los Pisos y APs)</span>
+            </button>
+            <div class="flex items-center gap-1.5">
+              <button type="button" onclick="toggleAllHierarchyNodes(true)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 text-[11px] font-semibold">
+                <i class="fa-solid fa-angles-down mr-1"></i>Expandir Todo
+              </button>
+              <button type="button" onclick="toggleAllHierarchyNodes(false)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-semibold">
+                <i class="fa-solid fa-angles-up mr-1"></i>Contraer Todo
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Banner activo cuando se filtra un Piso / AP / Tipo de Falla -->
+        <div id="hier-active-filter-banner" class="hidden"></div>
+
+        <!-- Barra de Selección de Día(s) o Todos los Días (Total) directamente en la Sección 2 -->
+        <div class="bg-slate-900/90 px-3 py-2 rounded-xl border border-teal-500/35 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="section-day-filter-chips flex flex-wrap items-center gap-1.5"></div>
+          <div class="corp-filter-chips flex flex-wrap items-center gap-1.5"></div>
+        </div>
+
+        <!-- Barra de Filtro por Tipo de Falla (Ordena Top Pisos, Top APs y Clientes por la falla elegida) -->
+        <div class="bg-slate-900/85 px-3 py-2.5 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[11px] font-bold text-slate-300 mr-1">
+              <i class="fa-solid fa-filter text-rose-400 mr-1"></i>Filtrar y Ordenar Top Pisos / APs por Tipo de Falla:
+            </span>
+            <div id="hier-issue-type-chips" class="flex flex-wrap items-center gap-1.5"></div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <label class="flex items-center gap-1.5 text-amber-300 font-semibold cursor-pointer text-[11px]">
+              <input type="checkbox" id="hier-only-issues" checked onchange="renderHierarchyExplorer(currentData)" class="rounded bg-slate-800 border-slate-600" />
+              <span>Solo mostrar con fallas</span>
+            </label>
+            <label class="flex items-center gap-1.5 text-teal-300 font-semibold cursor-pointer text-[11px]" title="Oculta las alertas de latencia causadas por ahorro de batería en móviles/equipos con buena señal (RSSI >= -67 dBm y pocos reintentos) o desconectados. Desmárcalo si quieres volver al conteo original.">
+              <input type="checkbox" checked onchange="toggleExcludePsLatency(this.checked)" class="chk-exclude-ps-latency rounded bg-slate-800 border-slate-600" />
+              <span class="lbl-exclude-ps-latency">Omitir falsos positivos Latencia Power-Save / Desc.</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Árbol Jerárquico Interactivo (Piso ➔ AP ➔ Cliente) -->
+        <div id="hierarchy-tree-container" class="space-y-2.5 max-h-[580px] overflow-y-auto pr-1"></div>
+
+        <!-- Resumen visual de Fallas y Tiempos de Conexión integrado en la misma Sección 2 (sin redundancia) -->
+        <div class="pt-3 border-t border-slate-800/80 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span id="alert-charts-section-heading" class="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-chart-column"></i> Gráficas por Tipo de Alerta: Top Pisos vs. Top APs (Usuarios, Fallas y Tráfico GB)
+            </span>
+            <div class="flex flex-wrap items-center gap-2">
+              <div id="alert-charts-layer-toggles" class="flex flex-wrap items-center gap-1.5"></div>
+              <div id="active-alert-cat-badge" class="hidden items-center gap-2 px-2.5 py-0.5 rounded-lg bg-rose-500/20 border border-rose-500/40 text-xs text-rose-200">
+                <span id="active-alert-cat-text">Alerta filtrada</span>
+                <button type="button" onclick="clearAlertCategoryFilter()" class="text-white hover:text-rose-300 font-bold ml-1"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Selector de Día + Dispositivo + Tipo de Alarma directamente en Gráficas de Fallas -->
+          <div class="bg-slate-900/90 px-3 py-2 rounded-xl border border-rose-500/30 space-y-2 text-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="section-day-filter-chips flex flex-wrap items-center gap-1.5"></div>
+              <div class="corp-filter-chips flex flex-wrap items-center gap-1.5"></div>
+            </div>
+            <div class="pt-1.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-[11px] font-bold text-rose-300 mr-1"><i class="fa-solid fa-bolt"></i> Filtrar por Tipo de Alerta:</span>
+                <div class="section-issue-type-chips flex flex-wrap items-center gap-1.5"></div>
+              </div>
+              <label class="flex items-center gap-1.5 text-teal-300 font-semibold cursor-pointer text-[11px]" title="Desmarca este check si quieres volver a ver el conteo crudo sin filtrar Power-Save / Desconectados">
+                <input type="checkbox" checked onchange="toggleExcludePsLatency(this.checked)" class="chk-exclude-ps-latency rounded bg-slate-800 border-slate-600" />
+                <span class="lbl-exclude-ps-latency">Omitir falsos positivos (Power-Save / Desc. / Históricos)</span>
+              </label>
+            </div>
+          </div>
+
+          <div id="client-focus-cards" class="hidden"></div>
+
+          <!-- 2 Gráficas Grandes Mitad y Mitad (o 1 sola al 100% cuando se selecciona un Piso específico) -->
+          <div id="alert-charts-single-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div id="card-client-floor-problems" class="bg-slate-900/80 rounded-xl p-4 border border-slate-700/80">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h4 id="title-client-floor-problems" class="text-xs sm:text-sm font-bold text-slate-100">1. Top Pisos con Fallas</h4>
+                <div id="floor-alerts-mode-toggle" class="flex items-center gap-1"></div>
+              </div>
+              <div class="h-72"><canvas id="chart-client-floor-problems"></canvas></div>
+            </div>
+            <div id="card-client-ap-failures" class="bg-slate-900/80 rounded-xl p-4 border border-amber-500/35">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h4 id="title-client-ap-failures" class="text-xs sm:text-sm font-bold text-slate-100">2. Top APs con Fallas</h4>
+                <div id="ap-failures-mode-toggle" class="flex items-center gap-1"></div>
+              </div>
+              <div class="h-72"><canvas id="chart-client-ap-failures"></canvas></div>
+            </div>
+          </div>
+
+          <!-- 2 Gráficas de Tiempos Promedio de Conexión (Auth 802.1X / DHCP / Roaming / Asoc en ms + Tráfico GB): Por Piso vs. Por AP -->
+          <div id="avg-times-charts-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div id="card-busy-floors-correlation" class="bg-slate-900/80 rounded-xl p-4 border border-slate-700/80">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h4 id="title-busy-floors-correlation" class="text-xs sm:text-sm font-bold text-slate-100">3. Tiempos Promedio por Piso (Auth, DHCP, Roam ms)</h4>
+                <div class="busy-aps-corr-metric-toggle flex flex-wrap items-center gap-1"></div>
+              </div>
+              <div class="h-72"><canvas id="chart-busy-floors-correlation"></canvas></div>
+            </div>
+            <div id="card-busy-aps-correlation" class="bg-slate-900/80 rounded-xl p-4 border border-amber-500/35">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h4 id="title-busy-aps-correlation" class="text-xs sm:text-sm font-bold text-slate-100">4. Tiempos Promedio por AP (Auth, DHCP, Roam ms)</h4>
+                <div id="busy-aps-corr-metric-toggle" class="busy-aps-corr-metric-toggle flex flex-wrap items-center gap-1"></div>
+              </div>
+              <div class="h-72"><canvas id="chart-busy-aps-correlation"></canvas></div>
+            </div>
+          </div>
+
+          <!-- Gráfica de Fallas por Tipo de Dispositivo / Modelo sincronizada con la Alerta Activa -->
+          <div id="clients-models-charts-grid" class="grid grid-cols-1 gap-4">
+            <div id="card-alert-device-models" class="bg-slate-900/80 rounded-xl p-4 border border-sky-500/35">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h4 id="title-alert-device-models" class="text-xs sm:text-sm font-bold text-slate-100">5. Fallas por Tipo de Dispositivo / Modelo</h4>
+                <div id="device-models-chart-mode-toggle" class="flex flex-wrap items-center gap-1"></div>
+              </div>
+              <div class="h-72"><canvas id="chart-alert-device-models"></canvas></div>
+            </div>
+          </div>
+
+          <!-- Tabla de Clientes Relacionados con las Fallas (sincronizada con Día, Dispositivo, Alerta, Piso y AP) -->
+          <details id="alert-related-clients-box" open class="bg-slate-900/85 rounded-xl border border-rose-500/35 overflow-hidden">
+            <summary class="cursor-pointer px-4 py-2.5 text-xs font-bold text-rose-200 hover:bg-slate-800/60 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <i class="fa-solid fa-users-Gear fa-user-xmark text-rose-400"></i>
+                <span id="title-alert-related-clients">Clientes Relacionados con las Fallas</span>
+                <span id="badge-alert-related-clients" class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-200 border border-rose-400/40 text-[10px] font-extrabold">0 usuarios • 0 sesiones</span>
+              </div>
+              <span class="text-[10px] text-slate-400 flex items-center gap-1.5">
+                <span>Clic en fila para ver las 57 variables • Clic aquí para plegar</span>
+                <i class="fa-solid fa-chevron-down text-[10px]"></i>
+              </span>
+            </summary>
+            <div class="p-3 border-t border-slate-800/90 space-y-2.5">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="relative flex-1 min-w-[240px] max-w-md">
+                  <i class="fa-solid fa-magnifying-glass text-rose-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
+                  <input
+                    type="text"
+                    id="alert-related-clients-search"
+                    oninput="filterAlertRelatedClientsInstant(this.value)"
+                    placeholder="Buscar usuario, hostname, modelo, MAC, IP, AP o falla..."
+                    class="w-full pl-8 pr-8 py-1.5 rounded-lg bg-slate-950 border border-rose-500/40 focus:border-rose-400 focus:outline-none text-xs text-white placeholder-slate-400"
+                  />
+                  <button
+                    type="button"
+                    id="btn-clear-alert-clients-search"
+                    onclick="clearAlertRelatedClientsSearch()"
+                    title="Limpiar búsqueda"
+                    class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-400 font-bold text-xs"
+                  >
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                  <label class="flex items-center gap-1.5 text-teal-300 font-semibold cursor-pointer text-[11px]" title="Desmarca este check si quieres volver al conteo original incluyendo latencias de ahorro de batería / desconectados">
+                    <input type="checkbox" checked onchange="toggleExcludePsLatency(this.checked)" class="chk-exclude-ps-latency rounded bg-slate-800 border-slate-600" />
+                    <span class="lbl-exclude-ps-latency">Omitir falsos positivos (Power-Save / Desc. / Históricos)</span>
+                  </label>
+                  <span class="text-[11px] text-slate-400">Ordenado por mayor criticidad</span>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto max-h-96 overflow-y-auto rounded-lg border border-slate-800/80">
+                <table class="w-full text-left border-collapse text-xs">
+                  <thead class="sticky top-0 bg-slate-950 z-10">
+                    <tr id="thead-alert-related-clients" class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+                      <th class="py-2 px-2.5">Usuario / Hostname</th>
+                      <th class="py-2 px-2.5">MAC / IPv4</th>
+                      <th class="py-2 px-2.5">AP Asociado / Piso</th>
+                      <th class="py-2 px-2.5 text-center">Día / Banda</th>
+                      <th class="py-2 px-2.5 text-center">RSSI / SNR</th>
+                      <th class="py-2 px-2.5 text-center text-rose-300">Retries %</th>
+                      <th class="py-2 px-2.5 text-center text-amber-300">Tiempos (Asoc | Auth | DHCP | Roam)</th>
+                      <th class="py-2 px-2.5 text-center">Latencia / Tráfico</th>
+                      <th class="py-2 px-2.5">Fallas Detectadas</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-alert-related-clients" class="divide-y divide-slate-800/70"></tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+
+          <!-- Contenedores ocultos para compatibilidad sin duplicar tablas/tarjetas que ya están en la Jerarquía -->
+          <div class="hidden">
+            <div id="auth-kpi-cards"></div>
+            <canvas id="chart-auth-ap"></canvas>
+            <table><tbody id="table-slow-auth-clients"></tbody></table>
+            <table><tbody id="table-client-ap-failures"></tbody></table>
+            <div id="active-alarm-tag-badge"><span id="active-alarm-tag-text"></span></div>
+            <div id="alarm-tags-chips"></div>
+            <canvas id="chart-alarm-tags"></canvas>
+            <canvas id="chart-top-retry-users"></canvas>
+            <div id="insights-container"></div>
+            <canvas id="chart-scatter-rf"></canvas>
+            <canvas id="chart-data-rate-dist"></canvas>
+            <canvas id="chart-alarm-concurrency"></canvas>
+            <canvas id="chart-rf-quality"></canvas>
+            <canvas id="chart-os"></canvas>
+            <canvas id="chart-top-users"></canvas>
+            <table><tbody id="table-concurrent-combos"></tbody></table>
+            <table><tbody id="table-most-affected-users"></tbody></table>
+          </div>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- 3. TRÁFICO Y CONSUMO DE DATOS (PISO, AP Y CLIENTE)                  -->
+      <!-- =================================================================== -->
+      <div id="sec-causas" class="space-y-4 scroll-mt-28">
+        <div class="glass rounded-xl p-4 border border-sky-500/40 space-y-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <span class="w-5 h-5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 text-xs flex items-center justify-center font-extrabold">3</span>
+              <i class="fa-solid fa-chart-simple text-sky-400"></i> Consumo de Datos y Tráfico Transmitido (Piso, AP y Cliente)
+            </h3>
+          </div>
+
+          <!-- Selector de Día o Todos los Días en Sección 4 -->
+          <div class="bg-slate-900/90 px-3 py-2 rounded-xl border border-teal-500/35 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="section-day-filter-chips flex flex-wrap items-center gap-1.5"></div>
+            <div class="corp-filter-chips flex flex-wrap items-center gap-1.5"></div>
+          </div>
+
+          <div id="traffic-kpi-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5"></div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div class="bg-slate-900/80 rounded-xl p-3 border border-slate-800">
+              <h4 class="text-xs font-semibold text-slate-200 mb-1">1. Tráfico Total Acumulado por Piso (GB)</h4>
+              <div class="h-48"><canvas id="chart-traffic-floor"></canvas></div>
+            </div>
+            <div class="bg-slate-900/80 rounded-xl p-3 border border-sky-500/30">
+              <h4 class="text-xs font-semibold text-slate-200 mb-1">2. Top 12 APs con Más Tráfico Acumulado (GB)</h4>
+              <div class="h-48"><canvas id="chart-traffic-ap"></canvas></div>
+            </div>
+            <div class="bg-slate-900/80 rounded-xl p-3 border border-emerald-500/30">
+              <h4 class="text-xs font-semibold text-slate-200 mb-1">3. Top 12 Clientes con Más Tráfico Acumulado (GB)</h4>
+              <div class="h-48"><canvas id="chart-traffic-clients"></canvas></div>
+            </div>
+          </div>
+
+          <details class="bg-slate-900/60 rounded-xl border border-slate-800 overflow-hidden">
+            <summary class="cursor-pointer px-3 py-2 text-xs font-bold text-sky-300 hover:bg-slate-800/60 flex items-center justify-between">
+              <span><i class="fa-solid fa-arrow-up-right-dots mr-1.5"></i>Ver Tabla Top 15 Clientes por Tráfico Cursado</span>
+              <i class="fa-solid fa-chevron-down text-[10px]"></i>
+            </summary>
+            <div class="p-3 border-t border-slate-800 max-h-56 overflow-y-auto overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead class="sticky top-0 bg-slate-900 z-10">
+                  <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+                    <th class="py-1.5 px-2"># / Usuario</th>
+                    <th class="py-1.5 px-2">Hostname / Dispositivo</th>
+                    <th class="py-1.5 px-2">AP / Piso</th>
+                    <th class="py-1.5 px-2 text-right text-sky-300">Total (Usage)</th>
+                    <th class="py-1.5 px-2 text-right text-indigo-300">Tx Subida</th>
+                    <th class="py-1.5 px-2 text-right text-emerald-300">Rx Bajada</th>
+                    <th class="py-1.5 px-2 text-center">Data Rate</th>
+                    <th class="py-1.5 px-2 text-center">Retries (%)</th>
+                  </tr>
+                </thead>
+                <tbody id="table-traffic-ranking" class="divide-y divide-slate-800/70"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- 4. TABLA DETALLADA DE CLIENTES Y RESUMEN POR USUARIO                -->
+      <!-- =================================================================== -->
+      <div class="glass rounded-xl p-4 space-y-3 scroll-mt-28" id="clients-table-section">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs flex items-center justify-center font-extrabold">4</span>
+            <span>Tabla Detallada de Sesiones de Clientes <span class="text-xs font-normal text-slate-400">(Clic en fila para ver las 57 variables)</span></span>
+          </h3>
+          <span id="clients-table-badge" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">Mostrando clientes</span>
+        </div>
+
+        <!-- Selector de Día o Todos los Días + Buscador Instantáneo (Usuario, Hostname, MAC, IP o AP) en Sección 5 -->
+        <div class="bg-slate-900/90 px-3 py-2.5 rounded-xl border border-teal-500/35 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="section-day-filter-chips flex flex-wrap items-center gap-1.5"></div>
+
+          <div class="corp-filter-chips flex flex-wrap items-center gap-1.5"></div>
+
+          <div class="flex flex-wrap items-center gap-2 flex-1 min-w-[280px] max-w-xl justify-end">
+            <div class="relative flex-1 min-w-[240px]">
+              <i class="fa-solid fa-magnifying-glass text-indigo-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
+              <input
+                type="text"
+                id="clients-table-search"
+                oninput="filterClientTableInstant(this.value)"
+                placeholder="Buscar Usuario, Hostname, MAC (ej. 10:E1:8E...), IP o AP..."
+                class="w-full pl-8 pr-8 py-1.5 rounded-lg bg-slate-950 border border-indigo-500/50 focus:border-indigo-400 focus:outline-none text-xs text-white placeholder-slate-400 shadow-inner"
+              />
+              <button
+                type="button"
+                id="btn-clear-clients-search"
+                onclick="clearClientTableSearch()"
+                title="Limpiar búsqueda"
+                class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-rose-400 font-bold text-xs"
+              >
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <details class="bg-slate-900/60 rounded-xl border border-slate-800 overflow-hidden">
+          <summary class="cursor-pointer px-3 py-2 text-xs font-bold text-indigo-300 hover:bg-slate-800/60 flex items-center justify-between">
+            <span><i class="fa-solid fa-id-badge mr-1.5"></i>Ver Resumen Agrupado por Usuario Corporativo (Multi-Dispositivo)</span>
+            <i class="fa-solid fa-chevron-down text-[10px]"></i>
+          </summary>
+          <div class="p-3 border-t border-slate-800 max-h-56 overflow-y-auto overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="sticky top-0 bg-slate-900 z-10">
+                <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+                  <th class="py-1.5 px-2">User ID</th>
+                  <th class="py-1.5 px-2 text-center">Equipos</th>
+                  <th class="py-1.5 px-2">Dispositivos / Hostnames</th>
+                  <th class="py-1.5 px-2">AP(s) / Piso(s)</th>
+                  <th class="py-1.5 px-2 text-center">RSSI Prom.</th>
+                  <th class="py-1.5 px-2 text-center">Retries (Prom / Máx)</th>
+                  <th class="py-1.5 px-2 text-right">Tráfico Total</th>
+                </tr>
+              </thead>
+              <tbody id="table-users-summary" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
+        </details>
+
+        <div class="overflow-x-auto max-h-[520px] overflow-y-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="sticky top-0 bg-slate-900 z-10">
+              <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+                <th class="py-2 px-2">Usuario / Hostname</th>
+                <th class="py-2 px-2">MAC / IPv4</th>
+                <th class="py-2 px-2">Dispositivo / SO</th>
+                <th class="py-2 px-2">AP Asociado / Piso</th>
+                <th class="py-2 px-2 text-center">Día / SSID / Banda</th>
+                <th class="py-2 px-2 text-center">RSSI / SNR</th>
+                <th class="py-2 px-2 text-center">Protocolo</th>
+                <th class="py-2 px-2 text-center">Retries %</th>
+                <th class="py-2 px-2 text-right">Tráfico</th>
+                <th class="py-2 px-2 text-center">3 Procesos (Asoc / Auth / DHCP) + Roam</th>
+                <th class="py-2 px-2">Diagnóstico</th>
+              </tr>
+            </thead>
+            <tbody id="table-clients-body" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- DASHBOARD 3: SALUD E INVENTARIO DE ACCESS POINTS CW9176I (CSV 2)    -->
+    <!-- =================================================================== -->
+    <div id="dash-ap-inventory" class="dash-panel hidden space-y-5">
+      <!-- Filtros exclusivos del Inventario de APs -->
+      <section class="glass rounded-xl p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-2">
+            <i class="fa-solid fa-sliders"></i> Filtros del Inventario de Access Points CW9176I (CSV 2 — Todos los Pisos)
+          </h2>
+          <label class="flex items-center gap-2 text-xs text-amber-300 cursor-pointer">
+            <input type="checkbox" id="filter-ap-alerts" class="rounded bg-slate-800 border-slate-600" />
+            Solo APs con alertas (Canal saturado >= 50%, Enlace 100Mbps, Interferencia o Issues)
+          </label>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Buscar AP, IP, Base Radio MAC, Piso o Switch</label>
+            <input type="text" id="filter-ap-q" placeholder="Ej: APDGP0305, APDGP0707, C72P3R0101..." class="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white" />
+          </div>
+          <div>
+            <label class="block text-[11px] text-sky-300 font-semibold mb-1"><i class="fa-solid fa-building"></i> Filtrar por Piso (Acrónimo AP / Ubicación)</label>
+            <select id="filter-floor" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-sky-500/50 text-xs text-white"><option value="ALL">Todos los Pisos</option></select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-slate-400 mb-1">Filtrar por Switch de Acceso (Connected Device)</label>
+            <select id="filter-switch" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"><option value="ALL">Todos los Switches</option></select>
+          </div>
+          <div>
+            <label class="block text-[11px] text-amber-300 font-semibold mb-1"><i class="fa-solid fa-heart-pulse"></i> Overall Health / Condición RF del AP</label>
+            <select id="filter-ap-condition" class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-amber-500/50 text-xs text-white">
+              <option value="ALL">Todos los APs</option>
+              <option value="health_low">Overall Health < 10 (Degradados / Críticos: 17 APs)</option>
+              <option value="health_crit">Overall Health Crítico = 1/10 (6 APs)</option>
+              <option value="health_mid">Overall Health Regular = 6-7/10 (8 APs)</option>
+              <option value="health_10">Overall Health Óptimo = 10/10 (114 APs)</option>
+              <option value="util_5g_50">Canal 5 GHz Saturado (Utilización >= 50%)</option>
+              <option value="int_5g_15">Interferencia 5 GHz Alta (>= 15%)</option>
+              <option value="link_100m">Puerto Ethernet Degradado (100 Mbps)</option>
+              <option value="link_degraded">Enlace < 10 Gbps (100M / 5G)</option>
+              <option value="overload_35">Sobrecarga de Clientes (>= 35 asociados)</option>
+              <option value="has_issues">Con Issues en Catalyst Center</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Chips rápidos para filtrar APs en Dashboard 3 -->
+        <div class="pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-semibold text-slate-300 mr-1"><i class="fa-solid fa-hand-pointer text-amber-400"></i> Clic rápido para aislar APs:</span>
+          <button type="button" onclick="quickFilterApInventory('ALL')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium border border-slate-700 transition">
+            Todos los APs
+          </button>
+          <button type="button" onclick="quickFilterApInventory('health_low')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 text-[11px] font-bold border border-rose-500/40 transition">
+            <i class="fa-solid fa-heart-crack"></i> Overall Health < 10
+          </button>
+          <button type="button" onclick="quickFilterApInventory('health_crit')" class="px-2.5 py-1 rounded-lg bg-rose-600/30 hover:bg-rose-600/45 text-rose-200 text-[11px] font-bold border border-rose-500/50 transition">
+            <i class="fa-solid fa-triangle-exclamation"></i> Health Crítico (1/10)
+          </button>
+          <button type="button" onclick="quickFilterApInventory('util_5g_50')" class="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 text-[11px] font-semibold border border-amber-500/40 transition">
+            <i class="fa-solid fa-gauge-high"></i> Canal 5 GHz >= 50%
+          </button>
+          <button type="button" onclick="quickFilterApInventory('int_5g_15')" class="px-2.5 py-1 rounded-lg bg-purple-500/20 hover:bg-purple-500/35 text-purple-300 text-[11px] font-semibold border border-purple-500/40 transition">
+            <i class="fa-solid fa-wave-square"></i> Interferencia 5 GHz >= 15%
+          </button>
+          <button type="button" onclick="quickFilterApInventory('link_100m')" class="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 text-[11px] font-semibold border border-rose-500/40 transition">
+            <i class="fa-solid fa-ethernet"></i> Enlace a 100 Mbps
+          </button>
+          <button type="button" onclick="quickFilterApInventory('overload_35')" class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/35 text-sky-300 text-[11px] font-semibold border border-sky-500/40 transition">
+            <i class="fa-solid fa-users"></i> APs >= 35 Clientes
+          </button>
+          <input type="hidden" id="filter-ap-health-bucket" value="ALL" />
+          <input type="hidden" id="filter-disconnect-ts" value="ALL" />
+          <input type="hidden" id="filter-uptime-bucket" value="ALL" />
+        </div>
+      </section>
+
+      <!-- KPIs de Infraestructura AP (Interactivos) -->
+      <div id="ap-inv-kpis" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"></div>
+
+      <!-- Diagnósticos del Inventario AP (Interactivos: Clic para ver los APs y luego clic en AP para ver sus clientes) -->
+      <div class="glass rounded-xl p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation text-sky-400"></i> Hallazgos de Infraestructura y Radiofrecuencia en los APs CW9176I
+            <span class="text-xs font-normal text-amber-300">(Paso 1: Haz clic en el hallazgo para filtrar esos APs • Paso 2: Haz clic en el AP para ver sus clientes)</span>
+          </h3>
+        </div>
+        <div id="ap-inv-insights" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+      </div>
+
+      <!-- NUEVA SECCIÓN: GRÁFICAS POR TIEMPO EN INVENTARIO DE APs (CSV 2) -->
+      <div class="glass rounded-xl p-4 border border-sky-500/30 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-timeline text-sky-400"></i> Gráficas por Tiempo y Salud (<code class="text-rose-300">Overall Health</code>, <code class="text-sky-300">Last Disconnect Time</code> y <code class="text-sky-300">Uptime</code>)
+            </h3>
+            <p class="text-xs text-slate-400">Evalúa el <code class="text-rose-300">Overall Health</code> de los APs, caídas simultáneas de switches/energía y reinicios recientes. Haz clic en cualquier barra/segmento para aislar esos APs en la tabla.</p>
+          </div>
+          <div id="active-ap-time-badge" class="hidden items-center gap-2 px-3 py-1 rounded-lg bg-sky-500/20 border border-sky-500/40 text-xs text-sky-200">
+            <span id="active-ap-time-text">Filtro de AP activo</span>
+            <button type="button" onclick="clearApTimeFilters()" class="text-rose-300 hover:text-white font-bold ml-1"><i class="fa-solid fa-xmark"></i> Quitar</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="bg-slate-900/70 rounded-xl p-3.5 border border-rose-500/30">
+            <h4 class="text-xs font-semibold text-slate-200 mb-1 flex items-center justify-between">
+              <span>Distribución Overall Health APs (CSV 2)</span>
+              <span class="text-[10px] text-rose-400 font-normal"><i class="fa-solid fa-hand-pointer"></i> Clic para filtrar Health</span>
+            </h4>
+            <div class="h-56"><canvas id="chart-ap-health"></canvas></div>
+          </div>
+          <div class="bg-slate-900/70 rounded-xl p-3.5 border border-slate-800">
+            <h4 class="text-xs font-semibold text-slate-200 mb-1 flex items-center justify-between">
+              <span>Overall Health y Caídas por Fecha/Hora (Last Disconnect)</span>
+              <span class="text-[10px] text-sky-400 font-normal"><i class="fa-solid fa-hand-pointer"></i> Clic en barra para filtrar</span>
+            </h4>
+            <div class="h-56"><canvas id="chart-ap-disconnects"></canvas></div>
+          </div>
+          <div class="bg-slate-900/70 rounded-xl p-3.5 border border-slate-800">
+            <h4 class="text-xs font-semibold text-slate-200 mb-1 flex items-center justify-between">
+              <span>Overall Health Promedio por Tiempo Activo (Uptime)</span>
+              <span class="text-[10px] text-sky-400 font-normal"><i class="fa-solid fa-hand-pointer"></i> Clic para filtrar APs</span>
+            </h4>
+            <div class="h-56"><canvas id="chart-ap-uptime"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gráficos del Inventario AP (Incluyendo Gráfica de Clientes por AP + Overall Health) -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="glass rounded-xl p-4 border border-emerald-500/30">
+          <h4 class="text-xs font-semibold text-slate-200 mb-1 flex items-center justify-between">
+            <span><i class="fa-solid fa-users text-emerald-400 mr-1"></i> Clientes por AP (Inventario CSV 2 vs Sesiones CSV 1) y Overall Health</span>
+            <span class="text-[10px] text-emerald-400 font-normal"><i class="fa-solid fa-hand-pointer"></i> Clic en AP para ver sus clientes</span>
+          </h4>
+          <div class="h-64"><canvas id="chart-ap-inv-clients"></canvas></div>
+        </div>
+        <div class="glass rounded-xl p-4">
+          <h4 class="text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+            <span>Clientes, Utilización 5 GHz y Overall Health Promedio por Piso</span>
+            <span class="text-[10px] text-sky-400 font-normal"><i class="fa-solid fa-hand-pointer"></i> Clic en piso para filtrar</span>
+          </h4>
+          <div class="h-64"><canvas id="chart-ap-floors"></canvas></div>
+        </div>
+        <div class="glass rounded-xl p-4">
+          <h4 class="text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+            <span>Top 12 APs con Mayor Utilización 5 GHz (%) y su Overall Health</span>
+            <span class="text-[10px] text-emerald-400 font-normal"><i class="fa-solid fa-hand-pointer"></i> Clic en barra para ver clientes</span>
+          </h4>
+          <div class="h-64"><canvas id="chart-ap-util5g"></canvas></div>
+        </div>
+        <div class="glass rounded-xl p-4">
+          <h4 class="text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+            <span>Top 12 APs por Interferencia RF (%)</span>
+            <span class="text-[10px] text-emerald-400 font-normal"><i class="fa-solid fa-hand-pointer"></i> Clic en barra para ver clientes</span>
+          </h4>
+          <div class="h-64"><canvas id="chart-ap-interference"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Tabla Completa de Inventario de APs -->
+      <div class="glass rounded-xl p-4 overflow-x-auto" id="ap-inv-table-section">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <div>
+            <h3 class="text-sm font-bold text-white">Tabla de Overall Health, Salud de Radios, Enlaces Multigigabit y Switches de los Access Points (CW9176I)</h3>
+            <p class="text-xs text-emerald-300 mt-0.5"><i class="fa-solid fa-arrow-pointer"></i> Haz clic en cualquier fila o en el botón "Ver Clientes de este AP" para ir al Dashboard de Clientes con la correlación completa.</p>
+          </div>
+          <span id="ap-inv-table-badge" class="text-xs px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold">Mostrando APs</span>
+        </div>
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-slate-700 text-slate-400 uppercase text-[10px]">
+              <th class="py-2.5 px-2.5">AP Name / Modelo</th>
+              <th class="py-2.5 px-2.5 text-center">Overall Health AP</th>
+              <th class="py-2.5 px-2.5">Piso (Acrónimo)</th>
+              <th class="py-2.5 px-2.5">IP / Base Radio MAC</th>
+              <th class="py-2.5 px-2.5">Switch / Velocidad Puerto</th>
+              <th class="py-2.5 px-2.5 text-center">Clientes (Inv. / Sesiones CSV 1)</th>
+              <th class="py-2.5 px-2.5 text-center">Utilización Canal (5G / 2.4G)</th>
+              <th class="py-2.5 px-2.5 text-center">Interferencia RF (5G / 2.4G)</th>
+              <th class="py-2.5 px-2.5 text-center">Retries Clientes (CSV 1)</th>
+              <th class="py-2.5 px-2.5">Diagnóstico del AP</th>
+              <th class="py-2.5 px-2.5 text-right">Correlación Clientes</th>
+            </tr>
+          </thead>
+          <tbody id="table-ap-inv-body" class="divide-y divide-slate-800/70"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Modal Detalle Cliente -->
+  <div id="client-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl max-w-2xl w-full p-6 border border-slate-700 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-bold text-white" id="modal-title">Detalle de Cliente</h3>
+        <button id="modal-close" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="modal-body" class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- Modal para indicar qué Día es cada archivo CSV al cargarlo (con Calendario Visual Interactivo) -->
+  <div id="day-picker-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="glass rounded-2xl max-w-3xl w-full p-6 border border-emerald-500/50 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-calendar-days text-emerald-400"></i>
+            Selecciona en el Calendario el Día del Archivo CSV
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Haz clic directamente sobre el día en el calendario para asignarlo al archivo CSV y comparar la operación día a día.</p>
+        </div>
+        <button type="button" id="day-modal-cancel-x" onclick="closeDayPickerModal()" class="text-slate-400 hover:text-white text-lg px-2"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div id="day-picker-files-list" class="space-y-4 max-h-[68vh] overflow-y-auto pr-1"></div>
+
+      <div class="flex items-center justify-between gap-3 pt-3 border-t border-slate-800">
+        <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+          <i class="fa-solid fa-wand-magic-sparkles text-sky-400"></i>
+          <span>Haz clic en un número del calendario o elige el mes/año arriba.</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" id="day-modal-cancel-btn" onclick="closeDayPickerModal()" class="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+            Cancelar
+          </button>
+          <button type="button" id="btn-confirm-day-upload" class="px-5 py-2.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40 transition flex items-center gap-2">
+            <i class="fa-solid fa-calendar-check"></i> Confirmar Día y Cargar CSV(s)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Spotlight para traer al frente cualquier gráfica en tamaño grande -->
+  <div
+    id="chart-spotlight-overlay"
+    class="hidden fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6"
+    onclick="if(event.target === this) closeChartSpotlight()"
+  >
+    <div
+      id="chart-spotlight-shell"
+      class="w-full max-w-[1440px] bg-slate-900 border-2 border-sky-400/50 rounded-2xl shadow-2xl p-4 sm:p-6 flex flex-col gap-3"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-0.5 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-500/40 text-xs font-extrabold flex items-center gap-1.5">
+            <i class="fa-solid fa-expand"></i> Gráfica Ampliada
+          </span>
+          <span class="text-[11px] text-slate-400 hidden md:inline">
+            Pasa el mouse para ver métricas detalladas • Clic en una barra para filtrar • Usa ◀ ▶ o ESC
+          </span>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onclick="stepSpotlightChart(-1)"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center gap-1"
+            title="Gráfica anterior (Flecha izquierda)"
+          >
+            <i class="fa-solid fa-chevron-left text-[10px]"></i> Anterior
+          </button>
+          <button
+            type="button"
+            onclick="stepSpotlightChart(1)"
+            class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center gap-1"
+            title="Siguiente gráfica (Flecha derecha)"
+          >
+            Siguiente <i class="fa-solid fa-chevron-right text-[10px]"></i>
+          </button>
+          <button
+            type="button"
+            onclick="downloadSpotlightChartPng()"
+            class="px-2.5 py-1 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-200 border border-sky-500/40 text-xs font-bold transition flex items-center gap-1.5"
+            title="Descargar imagen PNG de esta gráfica"
+          >
+            <i class="fa-solid fa-camera"></i> Guardar PNG
+          </button>
+          <button
+            type="button"
+            onclick="closeChartSpotlight()"
+            class="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold shadow transition flex items-center gap-1.5"
+            title="Cerrar vista ampliada (ESC)"
+          >
+            <i class="fa-solid fa-xmark"></i> Cerrar (ESC)
+          </button>
+        </div>
+      </div>
+
+      <div id="chart-spotlight-slot" class="w-full"></div>
+    </div>
+  </div>
+
+  <script src="/static/app.js?v=20261102o"></script>
+</body>
+</html>
