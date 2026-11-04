@@ -3046,6 +3046,15 @@ function destroyChart(key) {
   }
 }
 
+function formatFloorChartLabel(flName, totalCount = 0) {
+  const s = String(flName || "");
+  if (totalCount <= 8) return s;
+  return s
+    .replace(/^Sótano\s*1.*$/i, "Sót. 1")
+    .replace(/^Sótano\s*2.*$/i, "Sót. 2")
+    .replace(/^Mezzanine$/i, "Mezz.");
+}
+
 function renderClientProblemFocus(data) {
   const k = data.kpis || {};
   const floorSum = data.floor_client_summary || [];
@@ -3143,14 +3152,14 @@ function renderClientProblemFocus(data) {
     return Math.round((getFloorIssueCount(f) / totU) * 1000) / 10;
   };
 
-  // Ordenar eje X por los Top 8 pisos con más usuarios afectados (eje horizontal limpio sin saturación)
+  // Mostrar TODOS los pisos ordenados de mayor a menor afectación (sin recortar pisos)
   const topFloors = [...floorSum]
+    .filter((f) => f && f.floor && f.floor !== "--")
     .sort(
       (a, b) =>
         getFloorIssueCount(b) - getFloorIssueCount(a) ||
         getFloorTotalUsers(b) - getFloorTotalUsers(a)
-    )
-    .slice(0, 8);
+    );
   const dayFloorMaps = compDays.map((d) => new Map((d.floor_client_summary || []).map((f) => [f.floor, f])));
   const subDayFloorMaps = subCompDays.map((d) => new Map((d.floor_client_summary || []).map((f) => [f.floor, f])));
   const subFloorMap = new Map(
@@ -3247,22 +3256,30 @@ function renderClientProblemFocus(data) {
         if (!meta || meta.hidden) return;
         meta.data.forEach((bar, i) => {
           const barHeight = Math.max(0, (bar.base || 0) - (bar.y || 0));
-          const innerTxt = ds.barInnerPctFmt ? ds.barInnerPctFmt(i) : "";
+          const barW = bar.width || 36;
+          const isNarrowBar = !isLarge && barW < 21;
+          let innerTxt = ds.barInnerPctFmt ? ds.barInnerPctFmt(i) : "";
+          if (isNarrowBar && barW < 18 && innerTxt.endsWith("%") && innerTxt.includes(".")) {
+            const numPct = parseFloat(innerTxt);
+            if (!Number.isNaN(numPct) && numPct >= 10) {
+              innerTxt = `${Math.round(numPct)}%`;
+            }
+          }
           let pillTopY = bar.y || 0;
 
           if (innerTxt) {
-            const availW = Math.max(22, (bar.width || 36) + 2);
-            let fontPx = baseInFontPx;
+            const availW = isNarrowBar ? Math.max(14, barW + 1) : Math.max(22, barW + 2);
+            let fontPx = isNarrowBar ? 6.8 : baseInFontPx;
             ctx.font = `800 ${fontPx}px Inter, system-ui, sans-serif`;
             let tw = ctx.measureText(innerTxt).width;
-            if (tw + 5 > availW && !isLarge) {
-              fontPx = 7.5;
+            if (tw + 4 > availW && !isLarge) {
+              fontPx = isNarrowBar ? 6.2 : 7.5;
               ctx.font = `800 ${fontPx}px Inter, system-ui, sans-serif`;
               tw = ctx.measureText(innerTxt).width;
             }
-            const padX = isLarge ? 4.5 : 2.5;
-            const pillW = Math.min(availW + 4, tw + padX * 2);
-            const pillH = fontPx + (isLarge ? 5 : 3.5);
+            const padX = isLarge ? 4.5 : isNarrowBar ? 1.5 : 2.5;
+            const pillW = Math.min(availW + (isNarrowBar ? 2 : 4), tw + padX * 2);
+            const pillH = fontPx + (isLarge ? 5 : isNarrowBar ? 2.8 : 3.5);
             const rx = bar.x - pillW / 2;
             // Si la barra es alta (como Piso 8), centrar dentro; si es bajita, apoyar justo sobre la base de la barra
             const ry =
@@ -3292,7 +3309,13 @@ function renderClientProblemFocus(data) {
           if (ds.barBadgeFmt) {
             const topTxt = ds.barBadgeFmt(i);
             if (topTxt) {
-              const badgeFontPx = ds.isFailBar ? (isLarge ? 11.5 : 10.5) : topFontPx;
+              const badgeFontPx = isNarrowBar
+                ? 8.2
+                : ds.isFailBar
+                ? isLarge
+                  ? 11.5
+                  : 10.5
+                : topFontPx;
               ctx.font = `800 ${badgeFontPx}px Inter, system-ui, sans-serif`;
               ctx.textAlign = "center";
               ctx.textBaseline = "bottom";
@@ -3415,7 +3438,7 @@ function renderClientProblemFocus(data) {
   if (sectionHeadingEl) {
     sectionHeadingEl.innerHTML = isSingleFloorSelected
       ? `<i class="fa-solid fa-chart-column"></i> Gráfica por Tipo de Alerta: Top APs en ${selectedFloorFilter} (Usuarios, Fallas y Tráfico GB)`
-      : `<i class="fa-solid fa-chart-column"></i> Gráficas por Tipo de Alerta: Top Pisos vs. Top APs (Usuarios, Fallas y Tráfico GB)`;
+      : `<i class="fa-solid fa-chart-column"></i> Gráficas por Tipo de Alerta: Todos los Pisos vs. Top APs (Usuarios, Fallas y Tráfico GB)`;
   }
 
   // Renderizador reutilizable con el diseño limpio de 1 día para Top Pisos
@@ -3536,7 +3559,10 @@ function renderClientProblemFocus(data) {
       });
     }
 
-    const floorXLabels = resolvedFloors.map((fl) => fl.floor);
+    const floorXLabels = resolvedFloors.map((fl) =>
+      formatFloorChartLabel(fl.floor, resolvedFloors.length)
+    );
+    const manyFloors1D = resolvedFloors.length > 9;
 
     charts[chartKey] = new Chart(canvasEl, {
       type: "bar",
@@ -3603,7 +3629,16 @@ function renderClientProblemFocus(data) {
         },
         scales: showFloorStackedAlerts
           ? {
-              x: { stacked: true, ticks: { color: "#e2e8f0", font: { size: 10 }, maxRotation: 0, minRotation: 0, autoSkip: false } },
+              x: {
+                stacked: true,
+                ticks: {
+                  color: "#e2e8f0",
+                  font: { size: manyFloors1D ? 8.5 : 10 },
+                  maxRotation: manyFloors1D ? 32 : 0,
+                  minRotation: manyFloors1D ? 28 : 0,
+                  autoSkip: false,
+                },
+              },
               y: {
                 stacked: true,
                 min: 0,
@@ -3613,7 +3648,15 @@ function renderClientProblemFocus(data) {
               },
             }
           : {
-              x: { ticks: { color: "#e2e8f0", font: { size: 10, weight: "600" }, maxRotation: 0, minRotation: 0, autoSkip: false } },
+              x: {
+                ticks: {
+                  color: "#e2e8f0",
+                  font: { size: manyFloors1D ? 8.5 : 10, weight: "600" },
+                  maxRotation: manyFloors1D ? 32 : 0,
+                  minRotation: manyFloors1D ? 28 : 0,
+                  autoSkip: false,
+                },
+              },
               y: {
                 position: "left",
                 min: 0,
@@ -3965,13 +4008,14 @@ function renderClientProblemFocus(data) {
         ? "Tráfico Total GB (Día 1 vs Día 2)"
         : `${issueLabelShort} (Día 1 vs Día 2)`;
 
-    // ---------------- 1. TOP 7 PISOS UNIFICADO (AZUL vs VERDE + LÍNEAS TRÁFICO BRILLANTES) ----------------
+    // ---------------- 1. TODOS LOS PISOS UNIFICADO (AZUL vs VERDE + LÍNEAS TRÁFICO BRILLANTES) ----------------
     const floorNamesSet = new Set([
+      ...(floorSum || []).map((f) => f.floor),
       ...(d0.floor_client_summary || []).map((f) => f.floor),
       ...(d1.floor_client_summary || []).map((f) => f.floor),
     ]);
     const compareTopFloors = [...floorNamesSet]
-      .filter(Boolean)
+      .filter((flName) => flName && flName !== "--")
       .map((flName) => {
         const f0 = d0FloorMap?.get(flName);
         const f1 = d1FloorMap?.get(flName);
@@ -3981,14 +4025,13 @@ function renderClientProblemFocus(data) {
           sumUsers: getFloorTotalUsers(f0) + getFloorTotalUsers(f1),
         };
       })
-      .sort((a, b) => b.sumIssues - a.sumIssues || b.sumUsers - a.sumUsers)
-      .slice(0, 7);
+      .sort((a, b) => b.sumIssues - a.sumIssues || b.sumUsers - a.sumUsers);
 
     const titleFloorProbEl = document.getElementById("title-client-floor-problems");
     if (titleFloorProbEl) {
       titleFloorProbEl.textContent = alarmSpec
-        ? `1. Top Pisos con ${alarmSpec.short} (${d0.day_label} vs ${d1.day_label})`
-        : `1. Top Pisos con Fallas (${d0.day_label} vs ${d1.day_label})`;
+        ? `1. Pisos con ${alarmSpec.short} (${d0.day_label} vs ${d1.day_label})`
+        : `1. Pisos con Fallas (${d0.day_label} vs ${d1.day_label})`;
     }
 
     const showFloorCompareTrafficLines =
@@ -4098,7 +4141,10 @@ function renderClientProblemFocus(data) {
         }
       }
 
-      const floorXLabels = compareTopFloors.map((f) => f.floor);
+      const floorXLabels = compareTopFloors.map((f) =>
+        formatFloorChartLabel(f.floor, compareTopFloors.length)
+      );
+      const manyFloors2D = compareTopFloors.length > 9;
 
       charts.clientFloorProblems = new Chart(floorProbCanvas, {
         type: "bar",
@@ -4176,11 +4222,28 @@ function renderClientProblemFocus(data) {
           },
           scales: showFloorStackedAlerts
             ? {
-                x: { stacked: true, ticks: { color: "#cbd5e1", font: { size: 9.5 }, maxRotation: 0 } },
+                x: {
+                  stacked: true,
+                  ticks: {
+                    color: "#cbd5e1",
+                    font: { size: manyFloors2D ? 8.5 : 9.5 },
+                    maxRotation: manyFloors2D ? 32 : 0,
+                    minRotation: manyFloors2D ? 28 : 0,
+                    autoSkip: false,
+                  },
+                },
                 y: { stacked: true, beginAtZero: true, ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } },
               }
             : {
-                x: { ticks: { color: "#cbd5e1", font: { size: 9.5 }, maxRotation: 0, minRotation: 0 } },
+                x: {
+                  ticks: {
+                    color: "#cbd5e1",
+                    font: { size: manyFloors2D ? 8.5 : 9.5, weight: "600" },
+                    maxRotation: manyFloors2D ? 32 : 0,
+                    minRotation: manyFloors2D ? 28 : 0,
+                    autoSkip: false,
+                  },
+                },
                 y: {
                   position: "left",
                   beginAtZero: true,
@@ -4487,8 +4550,8 @@ function renderClientProblemFocus(data) {
       const titleFloorProbEl = document.getElementById("title-client-floor-problems");
       if (titleFloorProbEl) {
         titleFloorProbEl.textContent = alarmSpec
-          ? `1. Top Pisos con ${alarmSpec.short}`
-          : "1. Top Pisos con Fallas";
+          ? `1. Pisos con ${alarmSpec.short}`
+          : "1. Pisos con Fallas";
       }
       mountCleanFloorChart({
         canvasEl: document.getElementById("chart-client-floor-problems"),
@@ -5955,8 +6018,8 @@ function renderAuthAnalyticsSection(data) {
   const subCompDays = getSubComparisonDays(data, compDays);
   const useSubData = Boolean(data.has_issue_subfilter && data.issue_filtered);
 
-  // Cuando hay alarma activa, ordenar Pisos por esa alarma para alinear Gráficas 1, 2 y 4
-  let topAuthFloors = byFloor.slice(0, 10);
+  // Cuando hay alarma activa, ordenar Pisos por esa alarma para alinear Gráficas 1, 2 y 4 (todos los pisos)
+  let topAuthFloors = [...byFloor];
   if (alarmSpec) {
     const baseFloors = data.floor_client_summary || [];
     const subFloorsMap = new Map(
@@ -5982,8 +6045,7 @@ function renderAuthAnalyticsSection(data) {
         const cb = b.alerts_breakdown?.[alarmSpec.floorAlertKey] || 0;
         if (cb !== ca) return cb - ca;
         return (b.issue_clients || 0) - (a.issue_clients || 0);
-      })
-      .slice(0, 10);
+      });
 
     // Usar promedios de los clientes afectados por la alarma en cada piso (si existen), con respaldo al piso base
     topAuthFloors = rankedFloors.map((bf) => subFloorsMap.get(bf.floor) || bf);
@@ -6424,7 +6486,7 @@ function renderTrafficAnalyticsSection(data) {
     `;
   }
 
-  const topTrafficFloors = byFloor.slice(0, 10);
+  const topTrafficFloors = [...byFloor].filter((f) => f && f.floor && f.floor !== "--");
 
   // Gráfica 1: Tráfico Total Acumulado por Piso (GB — Azul Día 1 vs Verde Día 2 al comparar días)
   const floorCanvas = document.getElementById("chart-traffic-floor");
@@ -7719,7 +7781,8 @@ function renderBusyApsSection(data) {
         meta.data.forEach((bar, i) => {
           const txt = ds.barBadgeFmt(i);
           if (!txt) return;
-          ctx.font = `bold ${isLarge ? 10 : 9}px Inter, system-ui, sans-serif`;
+          const narrowAvgBar = !isLarge && (bar.width || 36) < 20;
+          ctx.font = `bold ${isLarge ? 10 : narrowAvgBar ? 7.8 : 9}px Inter, system-ui, sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "bottom";
           ctx.fillStyle = ds.barBadgeColor || "#fde68a";
@@ -7758,17 +7821,50 @@ function renderBusyApsSection(data) {
       : `${prefix}${flSuffix} (${mTxt} ms)`;
   }
 
-  // ---------------- 1. GRÁFICA TIEMPOS PROMEDIO POR PISO ----------------
+  // ---------------- 1. GRÁFICA TIEMPOS PROMEDIO POR PISO (TODOS LOS PISOS) ----------------
   const cFlCorr = isSingleFloorSelected ? null : document.getElementById("chart-busy-floors-correlation");
   if (cFlCorr) {
-    const rawFloors = [...(data.floor_client_summary || [])];
     const sortFloorKey = (f) =>
       activeSpec
-        ? f[activeSpec.field] || 0
-        : (f.avg_auth_ms || 0) + (f.avg_dhcp_ms || 0) + (f.avg_roam_ms || 0);
-    const topFloors = rawFloors
-      .sort((a, b) => sortFloorKey(b) - sortFloorKey(a) || (b.unique_users || 0) - (a.unique_users || 0))
-      .slice(0, isTwoDay ? 7 : 8);
+        ? f?.[activeSpec.field] || 0
+        : (f?.avg_auth_ms || 0) + (f?.avg_dhcp_ms || 0) + (f?.avg_roam_ms || 0);
+
+    let topFloors;
+    if (isTwoDay) {
+      const d0MapTmp = new Map((compDays[0].floor_client_summary || []).map((f) => [f.floor, f]));
+      const d1MapTmp = new Map((compDays[1].floor_client_summary || []).map((f) => [f.floor, f]));
+      const baseMapTmp = new Map((data.floor_client_summary || []).map((f) => [f.floor, f]));
+      const allFlNames = new Set([
+        ...baseMapTmp.keys(),
+        ...d0MapTmp.keys(),
+        ...d1MapTmp.keys(),
+      ]);
+      topFloors = [...allFlNames]
+        .filter((flName) => flName && flName !== "--")
+        .map((flName) => {
+          const fBase = baseMapTmp.get(flName);
+          const f0 = d0MapTmp.get(flName);
+          const f1 = d1MapTmp.get(flName);
+          return (
+            fBase ||
+            f0 ||
+            f1 || { floor: flName, unique_users: 0 }
+          );
+        })
+        .sort((a, b) => {
+          const scoreA = sortFloorKey(d0MapTmp.get(a.floor)) + sortFloorKey(d1MapTmp.get(a.floor));
+          const scoreB = sortFloorKey(d0MapTmp.get(b.floor)) + sortFloorKey(d1MapTmp.get(b.floor));
+          if (scoreB !== scoreA) return scoreB - scoreA;
+          return (b.unique_users || 0) - (a.unique_users || 0);
+        });
+    } else {
+      const rawFloors = [...(data.floor_client_summary || [])].filter(
+        (f) => f && f.floor && f.floor !== "--"
+      );
+      topFloors = rawFloors.sort(
+        (a, b) => sortFloorKey(b) - sortFloorKey(a) || (b.unique_users || 0) - (a.unique_users || 0)
+      );
+    }
 
     let flDatasets = [];
     if (isTwoDay) {
@@ -7893,11 +7989,12 @@ function renderBusyApsSection(data) {
     }
 
     const showFlTrafficAxis = !isStackedTwoDay && showAlertChartTraffic;
+    const manyAvgFloors = topFloors.length > 9;
     charts.busyFloorsCorrelation = new Chart(cFlCorr, {
       type: "bar",
       plugins: isStackedTwoDay ? [] : [avgTimesBarPlugin],
       data: {
-        labels: topFloors.map((f) => f.floor),
+        labels: topFloors.map((f) => formatFloorChartLabel(f.floor, topFloors.length)),
         datasets: flDatasets,
       },
       options: {
@@ -7914,6 +8011,11 @@ function renderBusyApsSection(data) {
           legend: buildComboLegendOptions(9.5),
           tooltip: {
             callbacks: {
+              title: (items) => {
+                if (!items?.length) return "";
+                const flObj = topFloors[items[0].dataIndex];
+                return flObj ? flObj.floor : "";
+              },
               label: (ctx) => {
                 const ds = ctx.dataset || {};
                 const v = ctx.parsed.y;
@@ -7925,7 +8027,13 @@ function renderBusyApsSection(data) {
         scales: {
           x: {
             stacked: isStackedTwoDay,
-            ticks: { color: "#e2e8f0", font: { size: 9.5, weight: "600" }, maxRotation: 0, minRotation: 0, autoSkip: false },
+            ticks: {
+              color: "#e2e8f0",
+              font: { size: manyAvgFloors ? 8.5 : 9.5, weight: "600" },
+              maxRotation: manyAvgFloors ? 32 : 0,
+              minRotation: manyAvgFloors ? 28 : 0,
+              autoSkip: false,
+            },
           },
           y: {
             stacked: isStackedTwoDay,
