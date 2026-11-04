@@ -171,12 +171,13 @@ Check your Browserslist config to be sure that your targets are set up correctly
         </div>
       </div>
 
-      <!-- Navegación rápida para recorrer la página con Scroll suave -->
-      <nav class="hidden xl:flex items-center gap-1.5 bg-slate-900/90 px-2 py-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
+      <!-- Navegación rápida para recorrer la página con Scroll suave (siempre visible en cualquier resolución) -->
+      <nav class="flex flex-wrap items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
         <a href="#sec-resumen" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-emerald-300 transition">1. Resumen y Días</a>
         <a href="#hierarchy-explorer-section" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition">2. Jerarquía Fallas (Piso➔AP➔Cliente)</a>
         <a href="#sec-causas" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-amber-300 transition">3. Tráfico y Consumo</a>
         <a href="#clients-table-section" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-indigo-300 transition">4. Tabla Clientes</a>
+        <a href="#compat-6ghz-section" class="px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 hover:bg-cyan-500/25 transition"><i class="fa-solid fa-bolt-lightning mr-1 text-[10px]"></i>5. Compatibilidades</a>
       </nav>
 
       <!-- Botones compactos de gestión CSV -->
@@ -964,6 +965,131 @@ Check your Browserslist config to be sure that your targets are set up correctly
             <tbody id="table-clients-body" class="divide-y divide-slate-800/70"></tbody>
           </table>
         </div>
+      </div>
+
+      <!-- =================================================================== -->
+      <!-- 5. COMPATIBILIDADES: BANDA 6 GHz (WI-FI 6E)                         -->
+      <!-- =================================================================== -->
+      <div class="glass rounded-xl p-4 border border-cyan-500/45 space-y-4 scroll-mt-28" id="compat-6ghz-section">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs flex items-center justify-center font-extrabold">5</span>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-bolt-lightning text-cyan-400"></i>
+                <span>Compatibilidades Wi-Fi 6E (6 GHz): Capacidad de Usuarios y Equipos</span>
+              </h3>
+              <p class="text-[11px] text-slate-400">
+                Evalúa qué porcentaje de la planta (por Piso, Modelo, Fabricante, SO y AP) soporta <strong>Wi-Fi 6E (6 GHz)</strong> según la columna <code class="text-cyan-300">Capability</code> de Catalyst Center y cuánto tráfico descargaría de 5 GHz.
+              </p>
+            </div>
+          </div>
+          <div id="compat-unit-mode-toggle" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+
+        <!-- Barra de filtros rápidos (Solo Acumulado Total o 1 Día Específico + Corporativos/Externos) -->
+        <div class="bg-slate-900/90 px-3 py-2 rounded-xl border border-cyan-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div id="compat-day-filter-chips" class="flex flex-wrap items-center gap-1.5"></div>
+          <div id="compat-corp-filter-chips" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+
+        <!-- 4 Tarjetas KPI Ejecutivas de Compatibilidad Wi-Fi 6E -->
+        <div id="compat-6ghz-kpis" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+
+        <!-- Fila 1 de Gráficas: (1) Todos los Pisos (% y Cantidad 6E vs Total) | (2) Distribución por Estándar Wi-Fi -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div id="card-compat-floors" class="lg:col-span-2 bg-slate-900/80 rounded-xl p-4 border border-cyan-500/35">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h4 id="title-compat-floors" class="text-xs sm:text-sm font-bold text-slate-100">5.1 Compatibilidad Wi-Fi 6E (6 GHz) por Piso — Todos los Pisos</h4>
+              <div id="compat-floor-view-toggle" class="flex flex-wrap items-center gap-1"></div>
+            </div>
+            <div class="h-72"><canvas id="chart-compat-floors"></canvas></div>
+          </div>
+
+          <div id="card-compat-standards" class="bg-slate-900/80 rounded-xl p-4 border border-slate-700/80">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h4 id="title-compat-standards" class="text-xs sm:text-sm font-bold text-slate-100">5.2 Distribución por Estándar Wi-Fi</h4>
+              <span id="badge-compat-band-now" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">En 6 GHz hoy: 0%</span>
+            </div>
+            <div class="h-72"><canvas id="chart-compat-standards"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Fila 2 de Gráficas: Por Modelo / Fabricante / SO / Access Point -->
+        <div id="card-compat-models" class="bg-slate-900/80 rounded-xl p-4 border border-indigo-500/35">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h4 id="title-compat-models" class="text-xs sm:text-sm font-bold text-slate-100">5.3 Compatibilidad Wi-Fi 6E por Modelo de Dispositivo (Cuántos del Total + %)</h4>
+            <div id="compat-dim-toggle" class="flex flex-wrap items-center gap-1"></div>
+          </div>
+          <div class="h-72"><canvas id="chart-compat-models"></canvas></div>
+        </div>
+
+        <!-- Matriz Detallada de Compatibilidad por Todos los Pisos -->
+        <div class="bg-slate-900/75 rounded-xl border border-slate-800 overflow-hidden">
+          <div class="px-3.5 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <h4 class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-table-list"></i> Matriz Completa por Piso: Soporte Wi-Fi 6E (6 GHz) vs. Resto de Estándares y Tráfico Descargable
+            </h4>
+            <span id="compat-floor-table-subtitle" class="text-[11px] text-slate-400">Haz clic en cualquier piso para filtrarlo</span>
+          </div>
+          <div class="overflow-x-auto max-h-80 overflow-y-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="sticky top-0 bg-slate-950 z-10">
+                <tr class="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                  <th class="py-2 px-2.5">Piso</th>
+                  <th class="py-2 px-2 text-center">Total Piso</th>
+                  <th class="py-2 px-2 text-center text-cyan-300">Compatibles Wi-Fi 6E (6 GHz)</th>
+                  <th class="py-2 px-2.5 min-w-[160px]">% Soportado Wi-Fi 6E</th>
+                  <th class="py-2 px-2 text-center text-sky-300">Wi-Fi 6 (Solo 5 GHz)</th>
+                  <th class="py-2 px-2 text-center text-amber-300">Wi-Fi 5 (11ac)</th>
+                  <th class="py-2 px-2 text-center text-slate-400">11n / Otros</th>
+                  <th class="py-2 px-2.5 text-right text-cyan-200">Tráfico Migrable a 6 GHz</th>
+                </tr>
+              </thead>
+              <tbody id="table-compat-floors-body" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Explorador Desplegable de Usuarios / Equipos Compatibles con Wi-Fi 6E -->
+        <details id="compat-devices-details" class="bg-slate-900/65 rounded-xl border border-cyan-500/30 overflow-hidden">
+          <summary class="cursor-pointer px-3.5 py-2.5 text-xs font-bold text-cyan-300 hover:bg-slate-800/60 flex flex-wrap items-center justify-between gap-2">
+            <span><i class="fa-solid fa-laptop-medical mr-1.5"></i>Ver / Buscar Listado de Usuarios y Dispositivos por Capacidad Wi-Fi (Wi-Fi 6E, Wi-Fi 6, 11ac)</span>
+            <span id="compat-devices-summary-pill" class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 text-[10px] font-extrabold">Ver listado</span>
+          </summary>
+          <div class="p-3 border-t border-slate-800 space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div id="compat-cap-filter-chips" class="flex flex-wrap items-center gap-1.5"></div>
+              <div class="relative min-w-[230px] flex-1 max-w-sm">
+                <i class="fa-solid fa-magnifying-glass text-cyan-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
+                <input
+                  type="text"
+                  id="compat-table-search"
+                  oninput="setCompatTableSearch(this.value)"
+                  placeholder="Filtrar por usuario, hostname, modelo, MAC o piso..."
+                  class="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-950 border border-cyan-500/40 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-slate-400"
+                />
+              </div>
+            </div>
+            <div class="overflow-x-auto max-h-96 overflow-y-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead class="sticky top-0 bg-slate-950 z-10">
+                  <tr class="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                    <th class="py-1.5 px-2">Usuario / Hostname</th>
+                    <th class="py-1.5 px-2">MAC / Tipo Equipo</th>
+                    <th class="py-1.5 px-2">Modelo / Fabricante / SO</th>
+                    <th class="py-1.5 px-2">Piso / AP Asociado</th>
+                    <th class="py-1.5 px-2 text-center">Capacidad HW (Capability)</th>
+                    <th class="py-1.5 px-2 text-center">Asociado Hoy / Banda</th>
+                    <th class="py-1.5 px-2 text-center">Data Rate</th>
+                    <th class="py-1.5 px-2 text-right">Tráfico</th>
+                  </tr>
+                </thead>
+                <tbody id="table-compat-clients-body" class="divide-y divide-slate-800/70"></tbody>
+              </table>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -5834,8 +5960,11 @@ function filterByDayLabel(dayLabel) {
   const target = dayLabel || "ALL";
   if (target !== "ALL" && !target.includes(",")) {
     lastSelectedSingleDay = target;
+    compatDayFilter = target;
+    compatLastSingleDay = target;
     chartCompareDaysMode = false;
   } else if (target === "ALL") {
+    compatDayFilter = "ALL";
     chartCompareDaysMode = false;
   } else {
     chartCompareDaysMode = true;
@@ -6062,6 +6191,7 @@ function renderAll(data) {
   renderClientProblemFocus(data);
   renderAuthAnalyticsSection(data);
   renderTrafficAnalyticsSection(data);
+  syncAndRenderCompatSection(data);
   if (data.total_records) {
     renderCharts(data);
     renderUsersSummaryTable(data.user_summary || []);
@@ -9826,8 +9956,8 @@ function renderClientTable(clients) {
   tbody.innerHTML = rowsHtml + loadMoreRow;
 }
 
-function showClientModal(idx) {
-  const c = currentData.clients[idx];
+function showClientModal(idx, customClientObj = null) {
+  const c = customClientObj || currentData?.clients?.[idx];
   if (!c) return;
   document.getElementById("modal-title").textContent = `Cliente ${c.user_id} (${c.mac}) — ${c.ap_name} (${c.floor})`;
   const fields = [
@@ -13074,6 +13204,1071 @@ function renderDailyComparisonSection(data) {
       tbody.innerHTML = dayRowsHtml + totalRowHtml;
     }
   }
+}
+
+// =========================================================================
+// 5. SECCIÓN COMPATIBILIDADES: BANDA 6 GHz (WI-FI 6E)
+// =========================================================================
+let compatUnitMode = "users"; // "users" | "devices" | "sessions"
+let compatFloorViewMode = "compat_count"; // "compat_count" | "compat_pct" | "stacked"
+let compatDimMode = "model"; // "model" | "vendor" | "os" | "ap"
+let compatCapFilter = "WIFI6E"; // "WIFI6E" | "WIFI6" | "LEGACY" | "ALL"
+let compatSearchQuery = "";
+let compatDayFilter = "ALL"; // Solo "ALL" (Acumulado Total) o 1 día específico ("<day_label>")
+let compatLastSingleDay = "";
+let compatActiveData = null;
+
+function setCompatDayFilter(dayLabel) {
+  const target = dayLabel && !String(dayLabel).includes(",") ? String(dayLabel) : "ALL";
+  compatDayFilter = target;
+  if (target !== "ALL") compatLastSingleDay = target;
+  if (currentData) syncAndRenderCompatSection(currentData);
+}
+
+function activateCompatSingleDayMode() {
+  const ref = compatActiveData || currentData;
+  const daysArr = (ref?.daily_comparison?.days || ref?.by_day_breakdown || []).map((d) => d.day_label);
+  if (!daysArr.length) return;
+  const chosen =
+    compatLastSingleDay && daysArr.includes(compatLastSingleDay)
+      ? compatLastSingleDay
+      : lastSelectedSingleDay && daysArr.includes(lastSelectedSingleDay)
+      ? lastSelectedSingleDay
+      : daysArr[daysArr.length - 1];
+  setCompatDayFilter(chosen);
+}
+
+async function syncAndRenderCompatSection(baseData) {
+  const daysArr = (baseData?.daily_comparison?.days || baseData?.by_day_breakdown || []).map((d) => d.day_label);
+  if (compatDayFilter !== "ALL" && !daysArr.includes(compatDayFilter)) {
+    compatDayFilter = "ALL";
+  }
+  const globalActiveDay = baseData?.active_day_filter || document.getElementById("filter-day-label")?.value || "ALL";
+  if (globalActiveDay === compatDayFilter) {
+    compatActiveData = baseData;
+    renderCompatibility6GhzSection(baseData);
+    return;
+  }
+
+  // Si el tablero general está en "Comparar 2 Días" u otro día distinto al elegido en Sección 5,
+  // consultamos el dataset exacto para compatDayFilter ("ALL" o 1 día específico).
+  try {
+    const params = new URLSearchParams({
+      q: document.getElementById("filter-q")?.value || "",
+      source_file: document.getElementById("filter-source-file")?.value || "ALL",
+      day_label: compatDayFilter,
+      corp_filter: document.getElementById("filter-corp")?.value || "ALL",
+      client_floor: document.getElementById("filter-client-floor")?.value || "ALL",
+      ap: document.getElementById("filter-ap")?.value || "ALL",
+      retry_range: document.getElementById("filter-retry-range")?.value || "ALL",
+      rf_quality: document.getElementById("filter-rf")?.value || "ALL",
+      protocol: document.getElementById("filter-protocol")?.value || "ALL",
+      os: document.getElementById("filter-os")?.value || "ALL",
+      status: document.getElementById("filter-status")?.value || "ALL",
+      min_retries: document.getElementById("filter-retries")?.value || "",
+      max_retries: document.getElementById("filter-max-retries")?.value || "",
+      only_issues: document.getElementById("filter-issues")?.checked ? "true" : "false",
+      exclude_disconnected: document.getElementById("filter-exclude-disconnected")?.checked ? "true" : "false",
+      exclude_ps_latency: excludePsLatency ? "true" : "false",
+      hour_slot: document.getElementById("filter-hour-slot")?.value || "ALL",
+      session_bucket: document.getElementById("filter-session-bucket")?.value || "ALL",
+      alert_cat: document.getElementById("filter-alert-cat")?.value || "ALL",
+      alarm_tag: document.getElementById("filter-alarm-tag")?.value || "ALL",
+    });
+    const res = await fetch(`/api/data?${params.toString()}`);
+    const compatData = await res.json();
+    compatActiveData = compatData;
+    renderCompatibility6GhzSection(compatData);
+  } catch (e) {
+    compatActiveData = baseData;
+    renderCompatibility6GhzSection(baseData);
+  }
+}
+
+function showCompatClientModal(idx) {
+  const src = compatActiveData || currentData;
+  const c = src?.clients?.[idx];
+  if (c) showClientModal(idx, c);
+}
+
+function setCompatUnitMode(mode) {
+  compatUnitMode = mode || "users";
+  const d = compatActiveData || currentData;
+  if (d) renderCompatibility6GhzSection(d);
+}
+
+function setCompatFloorViewMode(mode) {
+  compatFloorViewMode = mode || "compat_count";
+  const d = compatActiveData || currentData;
+  if (d) renderCompatibility6GhzSection(d);
+}
+
+function setCompatDimMode(mode) {
+  compatDimMode = mode || "model";
+  const d = compatActiveData || currentData;
+  if (d) renderCompatibility6GhzSection(d);
+}
+
+function setCompatCapFilter(capKey, openDrawer = false) {
+  compatCapFilter = capKey || "WIFI6E";
+  if (openDrawer) {
+    const det = document.getElementById("compat-devices-details");
+    if (det) det.open = true;
+  }
+  const d = compatActiveData || currentData;
+  if (d) renderCompatClientsTableOnly(d);
+}
+
+function setCompatTableSearch(val, openDrawer = false) {
+  compatSearchQuery = String(val || "");
+  const inp = document.getElementById("compat-table-search");
+  if (inp && inp.value !== compatSearchQuery) inp.value = compatSearchQuery;
+  if (openDrawer) {
+    const det = document.getElementById("compat-devices-details");
+    if (det) det.open = true;
+  }
+  const d = compatActiveData || currentData;
+  if (d) renderCompatClientsTableOnly(d);
+}
+
+function normalizeCapBucket(rawCap) {
+  const s = String(rawCap || "").trim().toLowerCase();
+  if (s.includes("6e")) return "WIFI6E";
+  if (s.includes("wi-fi 6") || s.includes("wifi 6") || s.includes("11ax")) return "WIFI6";
+  if (s.includes("11ac") || s.includes("wi-fi 5") || s.includes("wifi 5")) return "11AC";
+  if (s.includes("11n") || s.includes("11a") || s.includes("11g") || s.includes("11b") || s.includes("wi-fi 4")) return "11N";
+  return "OTHER";
+}
+
+const CAP_RANK_PRIORITY = { WIFI6E: 4, WIFI6: 3, "11AC": 2, "11N": 1, OTHER: 0 };
+
+function getEntityIdentityKey(c, unitMode, idx) {
+  if (unitMode === "sessions") return `ses:${c.id ?? idx}`;
+  if (unitMode === "devices") {
+    return c.mac && c.mac !== "--" ? `mac:${c.mac}` : `ses:${c.id ?? idx}`;
+  }
+  // "users"
+  if (c.user_id && c.user_id !== "--") return `usr:${c.user_id.toLowerCase()}`;
+  if (c.mac && c.mac !== "--") return `mac:${c.mac}`;
+  return `ses:${c.id ?? idx}`;
+}
+
+function aggregateCompatGroup(items, unitMode) {
+  // Consolida entidades únicas dentro del grupo eligiendo la mayor capacidad demostrada
+  const entityBestCap = new Map();
+  const entityIsCorp = new Map();
+  let totalUsageMb = 0;
+  let compat6gUsageMb = 0;
+  let active6GhzSessions = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const c = items[i];
+    const cap = normalizeCapBucket(c.capability);
+    const uMb = Number(c.usage_mb) || 0;
+    totalUsageMb += uMb;
+    if (cap === "WIFI6E") compat6gUsageMb += uMb;
+    if (String(c.band || "").includes("6")) active6GhzSessions++;
+
+    const ek = getEntityIdentityKey(c, unitMode, i);
+    const prev = entityBestCap.get(ek);
+    if (!prev || CAP_RANK_PRIORITY[cap] > CAP_RANK_PRIORITY[prev]) {
+      entityBestCap.set(ek, cap);
+    }
+    const isCorp = Boolean(c.is_corporate || /^col/i.test(String(c.hostname || "")));
+    if (isCorp) entityIsCorp.set(ek, true);
+    else if (!entityIsCorp.has(ek)) entityIsCorp.set(ek, false);
+  }
+
+  const counts = { WIFI6E: 0, WIFI6: 0, "11AC": 0, "11N": 0, OTHER: 0 };
+  let corpTotal = 0;
+  let corp6Ghz = 0;
+  for (const [ek, cap] of entityBestCap.entries()) {
+    counts[cap] = (counts[cap] || 0) + 1;
+    if (entityIsCorp.get(ek)) {
+      corpTotal++;
+      if (cap === "WIFI6E") corp6Ghz++;
+    }
+  }
+
+  const total = entityBestCap.size;
+  const compat6g = counts.WIFI6E;
+  const pct6g = total ? Math.round((compat6g / total) * 1000) / 10 : 0;
+  const pctWifi6e = pct6g;
+  const corpPct6g = corpTotal ? Math.round((corp6Ghz / corpTotal) * 1000) / 10 : 0;
+
+  return {
+    total,
+    compat6g,
+    pct6g,
+    pctWifi6e,
+    counts,
+    corpTotal,
+    corp6Ghz,
+    corpPct6g,
+    totalUsageGb: Math.round((totalUsageMb / 1024) * 100) / 100,
+    compat6gUsageGb: Math.round((compat6gUsageMb / 1024) * 100) / 100,
+    usageOffloadPct: totalUsageMb > 0 ? Math.round((compat6gUsageMb / totalUsageMb) * 1000) / 10 : 0,
+    active6GhzSessions,
+    sessionCount: items.length,
+  };
+}
+
+function renderCompatClientsTableOnly(data) {
+  const clients = data?.clients || [];
+  const chipsEl = document.getElementById("compat-cap-filter-chips");
+  const tbody = document.getElementById("table-compat-clients-body");
+  const pillEl = document.getElementById("compat-devices-summary-pill");
+  if (!tbody) return;
+
+  const capCounts = { WIFI6E: 0, WIFI6: 0, LEGACY: 0, ALL: clients.length };
+  clients.forEach((c) => {
+    const b = normalizeCapBucket(c.capability);
+    if (b === "WIFI6E") capCounts.WIFI6E++;
+    else if (b === "WIFI6") capCounts.WIFI6++;
+    else capCounts.LEGACY++;
+  });
+
+  if (chipsEl) {
+    const filterDefs = [
+      { id: "WIFI6E", label: `Compatibles Wi-Fi 6E (${capCounts.WIFI6E})`, cls: "bg-cyan-500/25 text-cyan-200 border-cyan-400" },
+      { id: "WIFI6", label: `Wi-Fi 6 Solo 5GHz (${capCounts.WIFI6})`, cls: "bg-sky-500/25 text-sky-200 border-sky-400" },
+      { id: "LEGACY", label: `11ac / 11n / Otros (${capCounts.LEGACY})`, cls: "bg-amber-500/25 text-amber-200 border-amber-400" },
+      { id: "ALL", label: `Todas (${capCounts.ALL})`, cls: "bg-slate-700 text-white border-slate-400" },
+    ];
+    chipsEl.innerHTML = filterDefs
+      .map(
+        (fd) =>
+          `<button type="button" onclick="setCompatCapFilter('${fd.id}')" class="px-2.5 py-1 rounded-lg text-[10px] font-extrabold border transition ${
+            compatCapFilter === fd.id
+              ? `${fd.cls} shadow`
+              : "bg-slate-900 text-slate-400 border-slate-700 hover:text-white"
+          }">${fd.label}</button>`
+      )
+      .join("");
+  }
+
+  const q = compatSearchQuery.trim().toLowerCase();
+  const indexed = clients.map((c, origIdx) => ({ c, origIdx }));
+  const filtered = indexed.filter(({ c }) => {
+    const b = normalizeCapBucket(c.capability);
+    if (compatCapFilter === "WIFI6E" && b !== "WIFI6E") return false;
+    if (compatCapFilter === "WIFI6" && b !== "WIFI6") return false;
+    if (compatCapFilter === "LEGACY" && (b === "WIFI6E" || b === "WIFI6")) return false;
+    if (q) {
+      const hay = `${c.user_id || ""} ${c.hostname || ""} ${c.mac || ""} ${c.device_model || ""} ${c.device_type || ""} ${c.vendor_clean || ""} ${c.os || ""} ${c.floor || ""} ${c.ap_name || ""} ${c.capability || ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (pillEl) {
+    pillEl.textContent = `${filtered.length} sesiones encontradas`;
+  }
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="py-5 text-center text-slate-400">No hay sesiones que coincidan con el filtro seleccionado.</td></tr>`;
+    return;
+  }
+
+  const badgeStyleByBucket = {
+    WIFI6E: "bg-cyan-500/25 text-cyan-200 border-cyan-400/60",
+    WIFI6: "bg-sky-500/20 text-sky-200 border-sky-500/40",
+    "11AC": "bg-amber-500/20 text-amber-200 border-amber-500/40",
+    "11N": "bg-rose-500/20 text-rose-200 border-rose-500/40",
+    OTHER: "bg-slate-800 text-slate-300 border-slate-600",
+  };
+
+  tbody.innerHTML = filtered
+    .slice(0, 150)
+    .map(({ c, origIdx }) => {
+      const b = normalizeCapBucket(c.capability);
+      const isCorp = Boolean(c.is_corporate || /^col/i.test(String(c.hostname || "")));
+      const modelTxt = c.device_model && c.device_model !== "--" ? c.device_model : c.device_type || "--";
+      const vendTxt = c.vendor_short && c.vendor_short !== "--" ? c.vendor_short : c.vendor_clean || "--";
+      const capLabel = b === "OTHER" && c.capability && String(c.capability).toLowerCase().includes("7") ? "Otros" : c.capability || "Unclassified";
+      return `<tr class="hover:bg-slate-800/60 transition cursor-pointer" onclick="showCompatClientModal(${origIdx})" title="Clic para inspeccionar las 57 variables">
+        <td class="py-1.5 px-2">
+          <div class="font-bold text-white">${c.user_id || "--"}</div>
+          <div class="text-[10px] text-slate-400">${c.hostname || "--"}</div>
+        </td>
+        <td class="py-1.5 px-2 font-mono text-[11px]">
+          <div class="text-slate-200">${c.mac || "--"}</div>
+          <div>${
+            isCorp
+              ? `<span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-sans font-bold">🏢 Corp</span>`
+              : `<span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-sans font-bold">📱 Ext</span>`
+          }</div>
+        </td>
+        <td class="py-1.5 px-2">
+          <div class="text-slate-100 font-semibold">${modelTxt}</div>
+          <div class="text-[10px] text-slate-400">${vendTxt} • ${c.os || "--"}</div>
+        </td>
+        <td class="py-1.5 px-2">
+          <div class="text-emerald-300 font-semibold">${c.floor || "--"}</div>
+          <div class="text-[10px] text-slate-400">${c.ap_name || "--"}</div>
+        </td>
+        <td class="py-1.5 px-2 text-center">
+          <span class="px-2 py-0.5 rounded-full border text-[10px] font-extrabold ${badgeStyleByBucket[b] || badgeStyleByBucket.OTHER}">
+            ${capLabel}
+          </span>
+        </td>
+        <td class="py-1.5 px-2 text-center text-[11px]">
+          <div class="text-slate-200 font-semibold">${c.protocol || "--"}</div>
+          <div class="text-[10px] ${String(c.band || "").includes("6") ? "text-cyan-300 font-bold" : "text-amber-300"}">${c.band || "--"}</div>
+        </td>
+        <td class="py-1.5 px-2 text-center font-mono text-slate-200">${c.data_rate ? `${c.data_rate} Mbps` : "--"}</td>
+        <td class="py-1.5 px-2 text-right font-mono text-sky-300">${c.usage_fmt || "0 B"}</td>
+      </tr>`;
+    })
+    .join("");
+}
+
+function renderCompatDayAndCorpBar(data) {
+  const dayBarEl = document.getElementById("compat-day-filter-chips");
+  const corpBarEl = document.getElementById("compat-corp-filter-chips");
+  const dc = data?.daily_comparison || {};
+  const days = dc.days || [];
+  const tot = dc.total_summary || { total_clients: data?.unfiltered_total || 0 };
+  const totalLoadedDays = days.length;
+  const isSingleDay = compatDayFilter !== "ALL" && days.some((d) => d.day_label === compatDayFilter);
+  const isTotal = !isSingleDay;
+
+  if (dayBarEl) {
+    const idleTabCls =
+      "bg-transparent hover:bg-slate-800/80 text-slate-400 hover:text-slate-200 border-transparent font-medium";
+    const tabTotalBtn = `<button type="button" onclick="setCompatDayFilter('ALL')" class="px-2.5 py-1 rounded-lg text-[11px] border transition flex items-center gap-1.5 ${
+      isTotal
+        ? "bg-emerald-600 text-white border-emerald-300 shadow-md ring-2 ring-emerald-400/50 font-extrabold"
+        : idleTabCls
+    }" title="Ver el acumulado total de los ${totalLoadedDays} días cargados">
+      <i class="${isTotal ? "fa-solid fa-circle-check text-white" : "fa-regular fa-circle opacity-60"} text-[10px]"></i>
+      <span>Acumulado Total</span>
+    </button>`;
+
+    const tabSingleBtn =
+      totalLoadedDays >= 1
+        ? `<button type="button" onclick="activateCompatSingleDayMode()" class="px-2.5 py-1 rounded-lg text-[11px] border transition flex items-center gap-1.5 ${
+            isSingleDay
+              ? "bg-amber-500 text-slate-950 border-amber-200 shadow-md ring-2 ring-amber-300/60 font-extrabold"
+              : idleTabCls
+          }" title="Evaluar compatibilidad Wi-Fi 6E para 1 día específico">
+            <i class="${isSingleDay ? "fa-solid fa-circle-check text-slate-950" : "fa-regular fa-circle opacity-60"} text-[10px]"></i>
+            <span>1 Día Específico</span>
+          </button>`
+        : "";
+
+    let ctxHtml = "";
+    if (isTotal) {
+      ctxHtml = `<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/75 border border-emerald-500/45 text-[11px] text-emerald-200 font-bold">
+        <i class="fa-solid fa-layer-group text-emerald-400 text-[10px]"></i>
+        <span>Viendo Total: <strong>${tot.total_clients || 0}</strong> sesiones (${totalLoadedDays} día${totalLoadedDays === 1 ? "" : "s"} sumados)</span>
+      </div>`;
+    } else {
+      ctxHtml = `<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-950/80 border-2 border-amber-400/80 shadow text-[11px]">
+        <span class="font-bold text-amber-300"><i class="fa-solid fa-calendar-day mr-1"></i>Viendo Día:</span>
+        <select onchange="if(this.value) setCompatDayFilter(this.value)" class="bg-slate-900 px-2 py-0.5 rounded border border-amber-400/60 text-[11px] font-extrabold text-white focus:outline-none cursor-pointer">
+          ${days
+            .map(
+              (d) =>
+                `<option value="${d.day_label.replace(/"/g, "&quot;")}" class="bg-slate-900 text-white" ${
+                  compatDayFilter === d.day_label ? "selected" : ""
+                }>${d.day_label} (${d.total_clients} ses.)</option>`
+            )
+            .join("")}
+        </select>
+      </div>`;
+    }
+
+    dayBarEl.innerHTML = `<div class="inline-flex flex-wrap items-center gap-2">
+      <div class="inline-flex flex-wrap items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-700/90 shadow-inner">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1.5">Modo:</span>
+        ${tabTotalBtn}
+        ${tabSingleBtn}
+      </div>
+      ${ctxHtml}
+    </div>`;
+  }
+
+  if (corpBarEl) {
+    const activeCorp = (data?.active_corp_filter || document.getElementById("filter-corp")?.value || "ALL").toUpperCase();
+    const cb = data?.corp_breakdown || {
+      all_clients: tot.total_clients || 0,
+      all_users: tot.unique_users || 0,
+      corp_clients: tot.corp_clients || 0,
+      corp_users: tot.corp_users || 0,
+      ext_clients: tot.ext_clients || 0,
+      ext_users: tot.ext_users || 0,
+    };
+    corpBarEl.innerHTML = `
+      <div class="inline-flex flex-wrap items-center gap-1 bg-slate-950/90 p-1 rounded-xl border border-indigo-500/40">
+        <span class="text-[10px] font-bold text-indigo-300 px-1.5"><i class="fa-solid fa-laptop-code mr-1"></i>Dispositivo:</span>
+        <button type="button" onclick="filterByCorpMode('ALL')" class="px-2 py-0.5 rounded-lg text-[11px] font-bold border transition flex items-center gap-1 ${
+          activeCorp === "ALL"
+            ? "bg-indigo-600 text-white border-indigo-300 shadow"
+            : "bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-700"
+        }" title="Mostrar todos los dispositivos (Corporativos COL- y Externos)">
+          <span>🌐 Todo</span>
+          <span class="text-[10px] opacity-90">(${cb.all_users}u / ${cb.all_clients}s)</span>
+        </button>
+        <button type="button" onclick="filterByCorpMode('CORP')" class="px-2 py-0.5 rounded-lg text-[11px] font-bold border transition flex items-center gap-1 ${
+          activeCorp === "CORP"
+            ? "bg-emerald-600 text-white border-emerald-300 shadow ring-1 ring-emerald-200"
+            : "bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 border-emerald-500/40"
+        }" title="Filtrar solo Dispositivos Corporativos (Hostname empieza por COL-)">
+          <span>🏢 Corporativo (COL-)</span>
+          <span class="text-[10px] opacity-90">(${cb.corp_users}u / ${cb.corp_clients}s)</span>
+        </button>
+        <button type="button" onclick="filterByCorpMode('EXT')" class="px-2 py-0.5 rounded-lg text-[11px] font-bold border transition flex items-center gap-1 ${
+          activeCorp === "EXT"
+            ? "bg-amber-500 text-slate-950 border-amber-200 shadow font-extrabold ring-1 ring-amber-200"
+            : "bg-amber-950/50 hover:bg-amber-900/60 text-amber-300 border-amber-500/40"
+        }" title="Filtrar solo Dispositivos Externos / Personales">
+          <span>📱 Externo</span>
+          <span class="text-[10px] opacity-90">(${cb.ext_users}u / ${cb.ext_clients}s)</span>
+        </button>
+      </div>
+    `;
+  }
+}
+
+function renderCompatibility6GhzSection(data) {
+  const kpiContainer = document.getElementById("compat-6ghz-kpis");
+  if (!kpiContainer) return;
+
+  renderCompatDayAndCorpBar(data);
+
+  const unitToggleEl = document.getElementById("compat-unit-mode-toggle");
+  const unitSuffix = compatUnitMode === "users" ? "u" : compatUnitMode === "devices" ? "eq" : "ses";
+  const unitLabelFull =
+    compatUnitMode === "users"
+      ? "Usuarios Únicos"
+      : compatUnitMode === "devices"
+      ? "Equipos Únicos (MAC)"
+      : "Sesiones";
+
+  if (unitToggleEl) {
+    const uBtns = [
+      { id: "users", icon: "fa-users", label: "Por Usuarios Únicos" },
+      { id: "devices", icon: "fa-laptop", label: "Por Equipos (MAC)" },
+      { id: "sessions", icon: "fa-signal", label: "Por Sesiones" },
+    ];
+    unitToggleEl.innerHTML = uBtns
+      .map(
+        (b) =>
+          `<button type="button" onclick="setCompatUnitMode('${b.id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold border transition flex items-center gap-1.5 ${
+            compatUnitMode === b.id
+              ? "bg-cyan-500/25 text-cyan-200 border-cyan-400 shadow"
+              : "bg-slate-900 text-slate-400 border-slate-700 hover:text-white"
+          }"><i class="fa-solid ${b.icon} text-[10px]"></i><span>${b.label}</span></button>`
+      )
+      .join("");
+  }
+
+  const floorViewToggleEl = document.getElementById("compat-floor-view-toggle");
+  if (floorViewToggleEl) {
+    const fvBtns = [
+      { id: "compat_count", label: "Compatibles 6E + %" },
+      { id: "compat_pct", label: "Ordenar por %" },
+      { id: "stacked", label: "Apilado Estándares" },
+    ];
+    floorViewToggleEl.innerHTML = fvBtns
+      .map(
+        (b) =>
+          `<button type="button" onclick="setCompatFloorViewMode('${b.id}')" class="px-2 py-0.5 rounded text-[10px] font-bold border transition ${
+            compatFloorViewMode === b.id
+              ? "bg-cyan-500/30 text-cyan-200 border-cyan-400"
+              : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+          }">${b.label}</button>`
+      )
+      .join("");
+  }
+
+  const dimToggleEl = document.getElementById("compat-dim-toggle");
+  if (dimToggleEl) {
+    const dBtns = [
+      { id: "model", icon: "fa-mobile-screen-button", label: "Por Modelo" },
+      { id: "vendor", icon: "fa-building", label: "Por Fabricante" },
+      { id: "os", icon: "fa-desktop", label: "Por SO" },
+      { id: "ap", icon: "fa-tower-broadcast", label: "Top APs 6E" },
+    ];
+    dimToggleEl.innerHTML = dBtns
+      .map(
+        (b) =>
+          `<button type="button" onclick="setCompatDimMode('${b.id}')" class="px-2.5 py-0.5 rounded text-[10px] font-bold border transition flex items-center gap-1 ${
+            compatDimMode === b.id
+              ? "bg-indigo-500/30 text-indigo-200 border-indigo-400"
+              : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+          }"><i class="fa-solid ${b.icon} text-[9px]"></i><span>${b.label}</span></button>`
+      )
+      .join("");
+  }
+
+  const clients = data?.clients || [];
+  ["compatFloors", "compatStandards", "compatModels"].forEach(destroyChart);
+
+  if (!clients.length) {
+    kpiContainer.innerHTML = `<div class="col-span-full py-4 text-center text-xs text-slate-400">Sube uno o varios archivos CSV para calcular la compatibilidad con Wi-Fi 6E (6 GHz).</div>`;
+    const ftBody = document.getElementById("table-compat-floors-body");
+    if (ftBody) ftBody.innerHTML = `<tr><td colspan="8" class="py-5 text-center text-slate-400">Sin datos cargados.</td></tr>`;
+    renderCompatClientsTableOnly(data);
+    return;
+  }
+
+  const globalAgg = aggregateCompatGroup(clients, compatUnitMode);
+  const bandNowEl = document.getElementById("badge-compat-band-now");
+  if (bandNowEl) {
+    const pctNow6 = clients.length ? Math.round((globalAgg.active6GhzSessions / clients.length) * 1000) / 10 : 0;
+    bandNowEl.textContent =
+      globalAgg.active6GhzSessions > 0
+        ? `Operando hoy en 6 GHz: ${globalAgg.active6GhzSessions} ses. (${pctNow6}%)`
+        : `Operando hoy en 6 GHz: 0 ses. (100% en 5/2.4 GHz)`;
+  }
+
+  // 1. Renderizar 4 KPIs Ejecutivos (Exclusivamente Wi-Fi 6E)
+  const non6gCount = globalAgg.total - globalAgg.compat6g;
+  const non6gPct = globalAgg.total ? Math.round((non6gCount / globalAgg.total) * 1000) / 10 : 0;
+  const ext6eCount = Math.max(0, globalAgg.compat6g - globalAgg.corp6Ghz);
+  kpiContainer.innerHTML = `
+    <div onclick="setCompatCapFilter('WIFI6E', true)" class="cursor-pointer clickable-card p-3.5 rounded-xl bg-cyan-950/25 border border-cyan-500/45 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-[10px] font-bold uppercase text-cyan-300">
+        <span>Total Compatibles Wi-Fi 6E (6 GHz)</span>
+        <i class="fa-solid fa-bolt-lightning"></i>
+      </div>
+      <div class="text-xl font-extrabold text-white my-1">${globalAgg.pct6g}% <span class="text-xs font-bold text-cyan-300">(${globalAgg.compat6g} / ${globalAgg.total})</span></div>
+      <div class="text-[11px] text-slate-300">${unitLabelFull} con soporte <strong>Wi-Fi 6E</strong> listos para trabajar en 6 GHz</div>
+    </div>
+
+    <div class="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/40 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-[10px] font-bold uppercase text-emerald-300">
+        <span>Flota Corporativa (COL-) Wi-Fi 6E</span>
+        <i class="fa-solid fa-building-shield"></i>
+      </div>
+      <div class="text-xl font-extrabold text-white my-1">${globalAgg.corpPct6g}% <span class="text-xs font-bold text-emerald-300">(${globalAgg.corp6Ghz} / ${globalAgg.corpTotal})</span></div>
+      <div class="text-[11px] text-slate-300">Equipos corporativos Wi-Fi 6E (+ ${ext6eCount} externos compatibles)</div>
+    </div>
+
+    <div class="p-3.5 rounded-xl bg-amber-950/20 border border-amber-500/40 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-[10px] font-bold uppercase text-amber-300">
+        <span>Descarga Tráfico 5 ➔ 6 GHz</span>
+        <i class="fa-solid fa-gauge-high"></i>
+      </div>
+      <div class="text-xl font-extrabold text-white my-1">${globalAgg.compat6gUsageGb} GB <span class="text-xs font-bold text-amber-300">(${globalAgg.usageOffloadPct}%)</span></div>
+      <div class="text-[11px] text-slate-300">De ${globalAgg.totalUsageGb} GB totales que saldrían de la banda 5 GHz</div>
+    </div>
+
+    <div onclick="setCompatCapFilter('WIFI6', true)" class="cursor-pointer clickable-card p-3.5 rounded-xl bg-slate-900/90 border border-slate-700 flex flex-col justify-between">
+      <div class="flex items-center justify-between text-[10px] font-bold uppercase text-sky-300">
+        <span>Solo 5 / 2.4 GHz (${non6gPct}%)</span>
+        <i class="fa-solid fa-wifi"></i>
+      </div>
+      <div class="text-xs font-extrabold text-white my-1">
+        <span class="text-sky-300">W6: ${globalAgg.counts.WIFI6}</span> •
+        <span class="text-amber-300">11ac: ${globalAgg.counts["11AC"]}</span> •
+        <span class="text-slate-400">Otros: ${globalAgg.counts["11N"] + globalAgg.counts.OTHER}</span>
+      </div>
+      <div class="text-[11px] text-slate-400">Permanecen en 5 GHz (con más espectro libre)</div>
+    </div>
+  `;
+
+  // Plugin compacto para etiquetas de conteo arriba y píldora de % dentro de barras de compatibilidad
+  const compatBarPlugin = {
+    id: "compatBarPlugin",
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      const isLarge = (chart.height || 0) > 360;
+      ctx.save();
+      chart.data.datasets.forEach((ds, dsIdx) => {
+        if (!ds.barBadgeFmt && !ds.barInnerPctFmt) return;
+        const meta = chart.getDatasetMeta(dsIdx);
+        if (!meta || meta.hidden) return;
+        meta.data.forEach((bar, i) => {
+          const isHoriz = chart.options?.indexAxis === "y";
+          if (isHoriz) {
+            const txt = ds.barBadgeFmt ? ds.barBadgeFmt(i) : "";
+            if (!txt) return;
+            ctx.font = `800 ${isLarge ? 10.5 : 9.5}px Inter, system-ui, sans-serif`;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#e2e8f0";
+            ctx.fillText(txt, bar.x + 5, bar.y);
+            return;
+          }
+
+          const barW = bar.width || 32;
+          const narrow = !isLarge && barW < 21;
+          const barH = Math.max(0, (bar.base || 0) - (bar.y || 0));
+          let innerTxt = ds.barInnerPctFmt ? ds.barInnerPctFmt(i) : "";
+          if (narrow && barW < 18 && innerTxt.endsWith("%") && innerTxt.includes(".")) {
+            const num = parseFloat(innerTxt);
+            if (!Number.isNaN(num) && num >= 10) innerTxt = `${Math.round(num)}%`;
+          }
+          let pillTopY = bar.y || 0;
+
+          if (innerTxt) {
+            const availW = narrow ? Math.max(14, barW + 1) : Math.max(22, barW + 2);
+            const fPx = narrow ? 6.8 : isLarge ? 10 : 8.2;
+            ctx.font = `800 ${fPx}px Inter, system-ui, sans-serif`;
+            const tw = ctx.measureText(innerTxt).width;
+            const padX = isLarge ? 4 : narrow ? 1.5 : 2.5;
+            const pillW = Math.min(availW + 3, tw + padX * 2);
+            const pillH = fPx + (isLarge ? 4.5 : 3);
+            const rx = bar.x - pillW / 2;
+            const ry = barH >= pillH + 3 ? bar.y + (barH - pillH) / 2 : (bar.base || 0) - pillH - 1.5;
+            pillTopY = ry;
+
+            ctx.fillStyle = "rgba(8, 47, 73, 0.90)";
+            ctx.strokeStyle = "#22d3ee";
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(rx, ry, pillW, pillH, 3);
+            else ctx.rect(rx, ry, pillW, pillH);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(innerTxt, bar.x, ry + pillH / 2 + 0.4);
+          }
+
+          if (ds.barBadgeFmt) {
+            const topTxt = ds.barBadgeFmt(i);
+            if (topTxt) {
+              ctx.font = `800 ${narrow ? 8 : isLarge ? 10.5 : 9.2}px Inter, system-ui, sans-serif`;
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+              const topY = Math.max(12, innerTxt ? Math.min(bar.y - 2.5, pillTopY - 2) : bar.y - 3);
+              ctx.lineWidth = 3;
+              ctx.strokeStyle = "rgba(2, 6, 23, 0.95)";
+              ctx.strokeText(topTxt, bar.x, topY);
+              ctx.fillStyle = ds.barBadgeColor || "#ffffff";
+              ctx.fillText(topTxt, bar.x, topY);
+            }
+          }
+        });
+      });
+      ctx.restore();
+    },
+  };
+
+  // 2. Agrupación por TODOS LOS PISOS
+  const byFloorMap = new Map();
+  for (let i = 0; i < clients.length; i++) {
+    const fl = clients[i].floor || "--";
+    if (fl === "--") continue;
+    if (!byFloorMap.has(fl)) byFloorMap.set(fl, []);
+    byFloorMap.get(fl).push(clients[i]);
+  }
+
+  let floorStats = Array.from(byFloorMap.entries()).map(([floor, items]) => ({
+    floor,
+    ...aggregateCompatGroup(items, compatUnitMode),
+  }));
+
+  if (compatFloorViewMode === "compat_pct") {
+    floorStats.sort((a, b) => b.pct6g - a.pct6g || b.compat6g - a.compat6g);
+  } else {
+    floorStats.sort((a, b) => b.compat6g - a.compat6g || b.total - a.total);
+  }
+
+  // Gráfica 5.1: Compatibilidad Wi-Fi 6E por Piso (Todos los Pisos)
+  const flCanvas = document.getElementById("chart-compat-floors");
+  const flTitleEl = document.getElementById("title-compat-floors");
+  if (flTitleEl) {
+    flTitleEl.textContent = `5.1 Compatibilidad Wi-Fi 6E (6 GHz) por Piso — Todos los Pisos (${unitLabelFull})`;
+  }
+  if (flCanvas && floorStats.length) {
+    const manyFl = floorStats.length > 9;
+    const flLabels = floorStats.map((f) => formatFloorChartLabel(f.floor, floorStats.length));
+    let flDatasets = [];
+
+    if (compatFloorViewMode === "stacked") {
+      const stackSpecs = [
+        { key: "WIFI6E", label: "Wi-Fi 6E (6 GHz)", color: "#06b6d4" },
+        { key: "WIFI6", label: "Wi-Fi 6 (Solo 5 GHz)", color: "#3b82f6" },
+        { key: "11AC", label: "Wi-Fi 5 (11ac)", color: "#f59e0b" },
+        { key: "OTHER_ALL", label: "11n / Otros", color: "#64748b" },
+      ];
+      flDatasets = stackSpecs.map((sp) => ({
+        label: sp.label,
+        data: floorStats.map((f) =>
+          sp.key === "OTHER_ALL" ? f.counts["11N"] + f.counts.OTHER : f.counts[sp.key] || 0
+        ),
+        backgroundColor: sp.color,
+        borderRadius: 3,
+        stack: "cap",
+      }));
+    } else {
+      const totArr = floorStats.map((f) => f.total);
+      const cmpArr = floorStats.map((f) => f.compat6g);
+      const pctArr = floorStats.map((f) => f.pct6g);
+      const gbArr = floorStats.map((f) => f.compat6gUsageGb);
+
+      flDatasets = [
+        {
+          label: `Total en Piso (${unitLabelFull})`,
+          data: totArr,
+          backgroundColor: "rgba(51, 65, 85, 0.55)",
+          borderColor: "rgba(148, 163, 184, 0.65)",
+          borderWidth: 1,
+          borderRadius: 5,
+          barBadgeColor: "#cbd5e1",
+          barBadgeFmt: (i) => (totArr[i] > 0 ? `${totArr[i]}${unitSuffix}` : ""),
+          yAxisID: "y",
+          order: 2,
+        },
+        {
+          label: "Compatibles Wi-Fi 6E (6 GHz)",
+          data: cmpArr,
+          backgroundColor: "rgba(6, 182, 212, 0.82)",
+          borderColor: "#22d3ee",
+          borderWidth: 1.3,
+          borderRadius: 5,
+          barBadgeColor: "#67e8f9",
+          barBadgeFmt: (i) => (cmpArr[i] > 0 ? `${cmpArr[i]}${unitSuffix}` : ""),
+          barInnerPctFmt: (i) => (cmpArr[i] > 0 ? `${pctArr[i]}%` : ""),
+          yAxisID: "y",
+          order: 2,
+        },
+        {
+          type: "line",
+          isTrafficLine: true,
+          label: "Tráfico Descargable a 6 GHz (GB)",
+          data: gbArr,
+          borderColor: "#facc15",
+          backgroundColor: "#facc15",
+          pointBackgroundColor: "#0f172a",
+          pointBorderColor: "#facc15",
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          borderWidth: 2.5,
+          borderDash: [3, 6],
+          tension: 0.2,
+          yAxisID: "y1",
+          order: 0,
+        },
+      ];
+    }
+
+    charts.compatFloors = new Chart(flCanvas, {
+      type: "bar",
+      plugins: compatFloorViewMode === "stacked" ? [] : [compatBarPlugin],
+      data: { labels: flLabels, datasets: flDatasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "nearest", intersect: true },
+        onClick: (evt, elements) => {
+          if (elements && elements.length > 0) {
+            const flObj = floorStats[elements[0].index];
+            if (flObj?.floor) quickFilterByFloor(flObj.floor);
+          }
+        },
+        plugins: {
+          legend: { labels: { color: "#cbd5e1", font: { size: 9.5 }, boxWidth: 11 } },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                if (!items?.length) return "";
+                const f = floorStats[items[0].dataIndex];
+                return f ? `${f.floor} — Soporte Wi-Fi 6E: ${f.pct6g}% (${f.compat6g}/${f.total})` : "";
+              },
+              label: (ctx) => {
+                const ds = ctx.dataset || {};
+                const f = floorStats[ctx.dataIndex];
+                if (ds.isTrafficLine) return ` ${ds.label}: ${ctx.parsed.y} GB (${f.usageOffloadPct}% del piso)`;
+                return ` ${ds.label}: ${ctx.parsed.y} ${unitSuffix}`;
+              },
+              afterBody: (items) => {
+                if (!items?.length) return [];
+                const f = floorStats[items[0].dataIndex];
+                if (!f) return [];
+                return [
+                  `• Wi-Fi 6E (6 GHz): ${f.counts.WIFI6E} (${f.pctWifi6e}%) | Wi-Fi 6 (5 GHz): ${f.counts.WIFI6}`,
+                  `• Corporativos (COL-) Wi-Fi 6E en piso: ${f.corp6Ghz}/${f.corpTotal} (${f.corpPct6g}%)`,
+                ];
+              },
+            },
+          },
+        },
+        scales:
+          compatFloorViewMode === "stacked"
+            ? {
+                x: {
+                  stacked: true,
+                  ticks: {
+                    color: "#e2e8f0",
+                    font: { size: manyFl ? 8.5 : 9.5, weight: "600" },
+                    maxRotation: manyFl ? 32 : 0,
+                    minRotation: manyFl ? 28 : 0,
+                    autoSkip: false,
+                  },
+                },
+                y: { stacked: true, beginAtZero: true, ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } },
+              }
+            : {
+                x: {
+                  ticks: {
+                    color: "#e2e8f0",
+                    font: { size: manyFl ? 8.5 : 9.5, weight: "600" },
+                    maxRotation: manyFl ? 32 : 0,
+                    minRotation: manyFl ? 28 : 0,
+                    autoSkip: false,
+                  },
+                },
+                y: {
+                  position: "left",
+                  beginAtZero: true,
+                  grace: "18%",
+                  title: { display: true, text: unitLabelFull, color: "#22d3ee", font: { size: 10, weight: "bold" } },
+                  ticks: { color: "#94a3b8" },
+                  grid: { color: "#1e293b" },
+                },
+                y1: {
+                  position: "right",
+                  beginAtZero: true,
+                  grace: "18%",
+                  title: { display: true, text: "GB 6 GHz •••", color: "#facc15", font: { size: 9.5, weight: "bold" } },
+                  ticks: { color: "#fde047", font: { size: 9 } },
+                  grid: { drawOnChartArea: false },
+                },
+              },
+      },
+    });
+  }
+
+  // 3. Gráfica 5.2: Distribución General por Estándar Wi-Fi
+  const stdCanvas = document.getElementById("chart-compat-standards");
+  if (stdCanvas) {
+    const stdRows = [
+      { key: "WIFI6E", filter: "WIFI6E", label: "Wi-Fi 6E (6 GHz)", val: globalAgg.counts.WIFI6E, color: "rgba(6, 182, 212, 0.85)", border: "#22d3ee" },
+      { key: "WIFI6", filter: "WIFI6", label: "Wi-Fi 6 (Solo 5 GHz)", val: globalAgg.counts.WIFI6, color: "rgba(59, 130, 246, 0.78)", border: "#60a5fa" },
+      { key: "11AC", filter: "LEGACY", label: "Wi-Fi 5 (802.11ac)", val: globalAgg.counts["11AC"], color: "rgba(245, 158, 11, 0.78)", border: "#fbbf24" },
+      { key: "11N", filter: "LEGACY", label: "Wi-Fi 4 (802.11n)", val: globalAgg.counts["11N"], color: "rgba(244, 63, 94, 0.75)", border: "#fb7185" },
+      { key: "OTHER", filter: "LEGACY", label: "Otros / Sin Clasificar", val: globalAgg.counts.OTHER, color: "rgba(100, 116, 139, 0.75)", border: "#94a3b8" },
+    ];
+    const stdPcts = stdRows.map((s) => (globalAgg.total ? Math.round((s.val / globalAgg.total) * 1000) / 10 : 0));
+
+    charts.compatStandards = new Chart(stdCanvas, {
+      type: "bar",
+      plugins: [compatBarPlugin],
+      data: {
+        labels: stdRows.map((s) => s.label),
+        datasets: [
+          {
+            label: unitLabelFull,
+            data: stdRows.map((s) => s.val),
+            backgroundColor: stdRows.map((s) => s.color),
+            borderColor: stdRows.map((s) => s.border),
+            borderWidth: 1.2,
+            borderRadius: 5,
+            barBadgeFmt: (i) => `${stdRows[i].val} (${stdPcts[i]}%)`,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (evt, elements) => {
+          if (elements && elements.length > 0) {
+            const st = stdRows[elements[0].index];
+            if (st) setCompatCapFilter(st.filter, true);
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.parsed.x} ${unitLabelFull} (${stdPcts[ctx.dataIndex]}% del total)`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            grace: "28%",
+            ticks: { color: "#94a3b8", font: { size: 9 } },
+            grid: { color: "#1e293b" },
+          },
+          y: {
+            ticks: { color: "#e2e8f0", font: { size: 10, weight: "600" } },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  // 4. Gráfica 5.3: Compatibilidad Wi-Fi 6E por Modelo / Fabricante / SO / AP
+  const modCanvas = document.getElementById("chart-compat-models");
+  const modTitleEl = document.getElementById("title-compat-models");
+  const dimMetaMap = {
+    model: { title: `5.3 Compatibilidad Wi-Fi 6E por Modelo de Dispositivo (${unitLabelFull} + %)`, getKey: (c) => (c.device_model && c.device_model !== "--" ? c.device_model : c.device_type || "Sin Modelo"), getShort: (k) => (k.length > 22 ? `${k.slice(0, 20)}…` : k) },
+    vendor: { title: `5.3 Compatibilidad Wi-Fi 6E por Fabricante / Chipset (${unitLabelFull} + %)`, getKey: (c) => (c.vendor_clean && c.vendor_clean !== "--" ? c.vendor_clean : "Sin Fabricante"), getShort: (k) => (k.length > 20 ? `${k.slice(0, 18)}…` : k) },
+    os: { title: `5.3 Compatibilidad Wi-Fi 6E por Sistema Operativo (${unitLabelFull} + %)`, getKey: (c) => (c.os && c.os !== "--" ? c.os : "Sin SO"), getShort: (k) => (k.length > 20 ? `${k.slice(0, 18)}…` : k) },
+    ap: { title: `5.3 Top Access Points con Más Clientes Compatibles Wi-Fi 6E (${unitLabelFull} + %)`, getKey: (c) => (c.ap_name && c.ap_name !== "Sin AP" ? `${c.ap_name} (${c.floor || "--"})` : null), getShort: (k) => k.split(" (")[0] },
+  };
+  const dimMeta = dimMetaMap[compatDimMode] || dimMetaMap.model;
+  if (modTitleEl) modTitleEl.textContent = dimMeta.title;
+
+  if (modCanvas) {
+    const dimGroups = new Map();
+    for (let i = 0; i < clients.length; i++) {
+      const k = dimMeta.getKey(clients[i]);
+      if (!k) continue;
+      if (!dimGroups.has(k)) dimGroups.set(k, []);
+      dimGroups.get(k).push(clients[i]);
+    }
+    const dimStats = Array.from(dimGroups.entries())
+      .map(([name, items]) => ({
+        name,
+        shortLabel: dimMeta.getShort(name),
+        ...aggregateCompatGroup(items, compatUnitMode),
+      }))
+      .sort((a, b) => b.compat6g - a.compat6g || b.total - a.total)
+      .slice(0, 12);
+
+    const dTotArr = dimStats.map((d) => d.total);
+    const dCmpArr = dimStats.map((d) => d.compat6g);
+    const dPctArr = dimStats.map((d) => d.pct6g);
+
+    charts.compatModels = new Chart(modCanvas, {
+      type: "bar",
+      plugins: [compatBarPlugin],
+      data: {
+        labels: dimStats.map((d) => d.shortLabel),
+        datasets: [
+          {
+            label: `Total del Grupo (${unitLabelFull})`,
+            data: dTotArr,
+            backgroundColor: "rgba(51, 65, 85, 0.55)",
+            borderColor: "rgba(148, 163, 184, 0.65)",
+            borderWidth: 1,
+            borderRadius: 5,
+            barBadgeColor: "#cbd5e1",
+            barBadgeFmt: (i) => (dTotArr[i] > 0 ? `${dTotArr[i]}${unitSuffix}` : ""),
+          },
+          {
+            label: "Compatibles Wi-Fi 6E (6 GHz)",
+            data: dCmpArr,
+            backgroundColor: "rgba(99, 102, 241, 0.82)",
+            borderColor: "#818cf8",
+            borderWidth: 1.3,
+            borderRadius: 5,
+            barBadgeColor: "#c7d2fe",
+            barBadgeFmt: (i) => (dCmpArr[i] > 0 ? `${dCmpArr[i]}${unitSuffix}` : ""),
+            barInnerPctFmt: (i) => (dCmpArr[i] > 0 ? `${dPctArr[i]}%` : ""),
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "nearest", intersect: true },
+        onClick: (evt, elements) => {
+          if (elements && elements.length > 0) {
+            const dObj = dimStats[elements[0].index];
+            if (dObj) {
+              const token = compatDimMode === "ap" ? dObj.shortLabel : dObj.name;
+              setCompatCapFilter("WIFI6E", true);
+              setCompatTableSearch(token, true);
+            }
+          }
+        },
+        plugins: {
+          legend: { labels: { color: "#cbd5e1", font: { size: 9.5 } } },
+          tooltip: {
+            callbacks: {
+              title: (items) => {
+                if (!items?.length) return "";
+                const d = dimStats[items[0].dataIndex];
+                return d ? `${d.name} — ${d.pct6g}% soporta Wi-Fi 6E` : "";
+              },
+              label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} ${unitSuffix}`,
+              afterBody: (items) => {
+                if (!items?.length) return [];
+                const d = dimStats[items[0].dataIndex];
+                return d
+                  ? [
+                      `• Wi-Fi 6E (6 GHz): ${d.counts.WIFI6E} | Wi-Fi 6 (5 GHz): ${d.counts.WIFI6} | 11ac: ${d.counts["11AC"]}`,
+                      `• Tráfico descargable a 6 GHz: ${d.compat6gUsageGb} GB (${d.usageOffloadPct}%)`,
+                    ]
+                  : [];
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: "#e2e8f0",
+              font: { size: 9, weight: "600" },
+              maxRotation: 25,
+              minRotation: 0,
+              autoSkip: false,
+            },
+          },
+          y: {
+            beginAtZero: true,
+            grace: "18%",
+            ticks: { color: "#94a3b8" },
+            grid: { color: "#1e293b" },
+          },
+        },
+      },
+    });
+  }
+
+  // 5. Tabla Matriz Completa por Todos los Pisos (8 columnas)
+  const flTbody = document.getElementById("table-compat-floors-body");
+  if (flTbody) {
+    const rowsHtml = floorStats
+      .map((f) => {
+        const barW = Math.min(100, Math.max(2, f.pct6g));
+        const otherCnt = f.counts["11N"] + f.counts.OTHER;
+        return `<tr class="hover:bg-slate-800/60 transition cursor-pointer" onclick="quickFilterByFloor('${f.floor}')" title="Clic para filtrar ${f.floor}">
+          <td class="py-2 px-2.5 font-bold text-white"><i class="fa-solid fa-building text-cyan-400 mr-1.5 text-[10px]"></i>${f.floor}</td>
+          <td class="py-2 px-2 text-center font-bold text-slate-200">${f.total}</td>
+          <td class="py-2 px-2 text-center">
+            <span class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 font-extrabold text-[11px]">${f.compat6g}</span>
+          </td>
+          <td class="py-2 px-2.5">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-cyan-400 to-teal-300 rounded-full" style="width:${barW}%"></div>
+              </div>
+              <span class="font-extrabold text-cyan-200 w-12 text-right">${f.pct6g}%</span>
+            </div>
+          </td>
+          <td class="py-2 px-2 text-center text-sky-300 font-semibold">${f.counts.WIFI6}</td>
+          <td class="py-2 px-2 text-center text-amber-300 font-semibold">${f.counts["11AC"]}</td>
+          <td class="py-2 px-2 text-center text-slate-400">${otherCnt}</td>
+          <td class="py-2 px-2.5 text-right font-mono text-cyan-200">
+            <span class="font-bold">${f.compat6gUsageGb} GB</span>
+            <span class="text-[10px] text-slate-400 ml-1">(${f.usageOffloadPct}%)</span>
+          </td>
+        </tr>`;
+      })
+      .join("");
+
+    const totOther = globalAgg.counts["11N"] + globalAgg.counts.OTHER;
+    const totalRowHtml = `<tr class="bg-cyan-950/35 border-t-2 border-cyan-500/60 font-extrabold">
+      <td class="py-2.5 px-2.5 text-cyan-300"><i class="fa-solid fa-layer-group mr-1.5"></i>TOTAL PLANTA (${floorStats.length} pisos)</td>
+      <td class="py-2.5 px-2 text-center text-white">${globalAgg.total}</td>
+      <td class="py-2.5 px-2 text-center"><span class="px-2.5 py-0.5 rounded-full bg-cyan-500/30 text-white border border-cyan-400">${globalAgg.compat6g}</span></td>
+      <td class="py-2.5 px-2.5 text-cyan-200">${globalAgg.pct6g}% compatible Wi-Fi 6E</td>
+      <td class="py-2.5 px-2 text-center text-sky-300">${globalAgg.counts.WIFI6}</td>
+      <td class="py-2.5 px-2 text-center text-amber-300">${globalAgg.counts["11AC"]}</td>
+      <td class="py-2.5 px-2 text-center text-slate-300">${totOther}</td>
+      <td class="py-2.5 px-2.5 text-right font-mono text-amber-300">${globalAgg.compat6gUsageGb} GB (${globalAgg.usageOffloadPct}%)</td>
+    </tr>`;
+
+    flTbody.innerHTML = rowsHtml + totalRowHtml;
+  }
+
+  // 6. Listado desplegable de clientes/equipos por capacidad
+  renderCompatClientsTableOnly(data);
 }
 
 </script>

@@ -137,6 +137,9 @@ La casilla superior **"Descartar falsos positivos..."** viene activa por defecto
    - Tabla general **independiente** del filtro de alerta de la Sección 2 para consultar siempre el universo completo de sesiones del día/piso/alcance activo.
    - Resumen desplegable agrupado por **Usuario Corporativo Multi-Dispositivo**.
    - Buscador instantáneo por `User ID`, `Hostname`, `MAC`, `IPv4` o `AP` y modal de inspección completa al hacer clic sobre cualquier fila.
+5. **Sección 5 — Compatibilidades Wi-Fi 6E (`6 GHz`):**
+   - Evalúa por **Usuarios Únicos**, **Equipos Únicos (`MAC`)** o **Sesiones** qué porcentaje de la sede soporta **Wi-Fi 6E (`6 GHz`)** según la columna `Capability` de Cisco Catalyst Center frente a `Wi-Fi 6 (solo 5 GHz)`, `11ac` y legados.
+   - Calcula la **descarga potencial de tráfico (`GB` y `%`)** que saldría de la banda de `5 GHz` hacia `6 GHz`, compatibilidad de flota corporativa (`COL-`), comparativa de **todos los pisos**, desglose por **Modelo, Fabricante, Sistema Operativo y Top APs**, matriz completa por piso y buscador filtrable por estándar.
 
 ---
 

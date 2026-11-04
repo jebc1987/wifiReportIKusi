@@ -53,12 +53,13 @@
         </div>
       </div>
 
-      <!-- Navegación rápida para recorrer la página con Scroll suave -->
-      <nav class="hidden xl:flex items-center gap-1.5 bg-slate-900/90 px-2 py-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
+      <!-- Navegación rápida para recorrer la página con Scroll suave (siempre visible en cualquier resolución) -->
+      <nav class="flex flex-wrap items-center gap-1 bg-slate-900/90 px-2 py-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
         <a href="#sec-resumen" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-emerald-300 transition">1. Resumen y Días</a>
         <a href="#hierarchy-explorer-section" class="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition">2. Jerarquía Fallas (Piso➔AP➔Cliente)</a>
         <a href="#sec-causas" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-amber-300 transition">3. Tráfico y Consumo</a>
         <a href="#clients-table-section" class="px-2.5 py-1 rounded-lg hover:bg-slate-800 text-slate-200 hover:text-indigo-300 transition">4. Tabla Clientes</a>
+        <a href="#compat-6ghz-section" class="px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/35 hover:bg-cyan-500/25 transition"><i class="fa-solid fa-bolt-lightning mr-1 text-[10px]"></i>5. Compatibilidades</a>
       </nav>
 
       <!-- Botones compactos de gestión CSV -->
@@ -847,6 +848,131 @@
           </table>
         </div>
       </div>
+
+      <!-- =================================================================== -->
+      <!-- 5. COMPATIBILIDADES: BANDA 6 GHz (WI-FI 6E)                         -->
+      <!-- =================================================================== -->
+      <div class="glass rounded-xl p-4 border border-cyan-500/45 space-y-4 scroll-mt-28" id="compat-6ghz-section">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+          <div class="flex items-center gap-2">
+            <span class="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-xs flex items-center justify-center font-extrabold">5</span>
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i class="fa-solid fa-bolt-lightning text-cyan-400"></i>
+                <span>Compatibilidades Wi-Fi 6E (6 GHz): Capacidad de Usuarios y Equipos</span>
+              </h3>
+              <p class="text-[11px] text-slate-400">
+                Evalúa qué porcentaje de la planta (por Piso, Modelo, Fabricante, SO y AP) soporta <strong>Wi-Fi 6E (6 GHz)</strong> según la columna <code class="text-cyan-300">Capability</code> de Catalyst Center y cuánto tráfico descargaría de 5 GHz.
+              </p>
+            </div>
+          </div>
+          <div id="compat-unit-mode-toggle" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+
+        <!-- Barra de filtros rápidos (Solo Acumulado Total o 1 Día Específico + Corporativos/Externos) -->
+        <div class="bg-slate-900/90 px-3 py-2 rounded-xl border border-cyan-500/30 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div id="compat-day-filter-chips" class="flex flex-wrap items-center gap-1.5"></div>
+          <div id="compat-corp-filter-chips" class="flex flex-wrap items-center gap-1.5"></div>
+        </div>
+
+        <!-- 4 Tarjetas KPI Ejecutivas de Compatibilidad Wi-Fi 6E -->
+        <div id="compat-6ghz-kpis" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"></div>
+
+        <!-- Fila 1 de Gráficas: (1) Todos los Pisos (% y Cantidad 6E vs Total) | (2) Distribución por Estándar Wi-Fi -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div id="card-compat-floors" class="lg:col-span-2 bg-slate-900/80 rounded-xl p-4 border border-cyan-500/35">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h4 id="title-compat-floors" class="text-xs sm:text-sm font-bold text-slate-100">5.1 Compatibilidad Wi-Fi 6E (6 GHz) por Piso — Todos los Pisos</h4>
+              <div id="compat-floor-view-toggle" class="flex flex-wrap items-center gap-1"></div>
+            </div>
+            <div class="h-72"><canvas id="chart-compat-floors"></canvas></div>
+          </div>
+
+          <div id="card-compat-standards" class="bg-slate-900/80 rounded-xl p-4 border border-slate-700/80">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <h4 id="title-compat-standards" class="text-xs sm:text-sm font-bold text-slate-100">5.2 Distribución por Estándar Wi-Fi</h4>
+              <span id="badge-compat-band-now" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">En 6 GHz hoy: 0%</span>
+            </div>
+            <div class="h-72"><canvas id="chart-compat-standards"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Fila 2 de Gráficas: Por Modelo / Fabricante / SO / Access Point -->
+        <div id="card-compat-models" class="bg-slate-900/80 rounded-xl p-4 border border-indigo-500/35">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h4 id="title-compat-models" class="text-xs sm:text-sm font-bold text-slate-100">5.3 Compatibilidad Wi-Fi 6E por Modelo de Dispositivo (Cuántos del Total + %)</h4>
+            <div id="compat-dim-toggle" class="flex flex-wrap items-center gap-1"></div>
+          </div>
+          <div class="h-72"><canvas id="chart-compat-models"></canvas></div>
+        </div>
+
+        <!-- Matriz Detallada de Compatibilidad por Todos los Pisos -->
+        <div class="bg-slate-900/75 rounded-xl border border-slate-800 overflow-hidden">
+          <div class="px-3.5 py-2.5 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <h4 class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-table-list"></i> Matriz Completa por Piso: Soporte Wi-Fi 6E (6 GHz) vs. Resto de Estándares y Tráfico Descargable
+            </h4>
+            <span id="compat-floor-table-subtitle" class="text-[11px] text-slate-400">Haz clic en cualquier piso para filtrarlo</span>
+          </div>
+          <div class="overflow-x-auto max-h-80 overflow-y-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="sticky top-0 bg-slate-950 z-10">
+                <tr class="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                  <th class="py-2 px-2.5">Piso</th>
+                  <th class="py-2 px-2 text-center">Total Piso</th>
+                  <th class="py-2 px-2 text-center text-cyan-300">Compatibles Wi-Fi 6E (6 GHz)</th>
+                  <th class="py-2 px-2.5 min-w-[160px]">% Soportado Wi-Fi 6E</th>
+                  <th class="py-2 px-2 text-center text-sky-300">Wi-Fi 6 (Solo 5 GHz)</th>
+                  <th class="py-2 px-2 text-center text-amber-300">Wi-Fi 5 (11ac)</th>
+                  <th class="py-2 px-2 text-center text-slate-400">11n / Otros</th>
+                  <th class="py-2 px-2.5 text-right text-cyan-200">Tráfico Migrable a 6 GHz</th>
+                </tr>
+              </thead>
+              <tbody id="table-compat-floors-body" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Explorador Desplegable de Usuarios / Equipos Compatibles con Wi-Fi 6E -->
+        <details id="compat-devices-details" class="bg-slate-900/65 rounded-xl border border-cyan-500/30 overflow-hidden">
+          <summary class="cursor-pointer px-3.5 py-2.5 text-xs font-bold text-cyan-300 hover:bg-slate-800/60 flex flex-wrap items-center justify-between gap-2">
+            <span><i class="fa-solid fa-laptop-medical mr-1.5"></i>Ver / Buscar Listado de Usuarios y Dispositivos por Capacidad Wi-Fi (Wi-Fi 6E, Wi-Fi 6, 11ac)</span>
+            <span id="compat-devices-summary-pill" class="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-500/40 text-[10px] font-extrabold">Ver listado</span>
+          </summary>
+          <div class="p-3 border-t border-slate-800 space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div id="compat-cap-filter-chips" class="flex flex-wrap items-center gap-1.5"></div>
+              <div class="relative min-w-[230px] flex-1 max-w-sm">
+                <i class="fa-solid fa-magnifying-glass text-cyan-400 absolute left-3 top-1/2 -translate-y-1/2 text-xs"></i>
+                <input
+                  type="text"
+                  id="compat-table-search"
+                  oninput="setCompatTableSearch(this.value)"
+                  placeholder="Filtrar por usuario, hostname, modelo, MAC o piso..."
+                  class="w-full pl-8 pr-3 py-1.5 rounded-lg bg-slate-950 border border-cyan-500/40 focus:border-cyan-400 focus:outline-none text-xs text-white placeholder-slate-400"
+                />
+              </div>
+            </div>
+            <div class="overflow-x-auto max-h-96 overflow-y-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead class="sticky top-0 bg-slate-950 z-10">
+                  <tr class="border-b border-slate-800 text-slate-400 uppercase text-[10px]">
+                    <th class="py-1.5 px-2">Usuario / Hostname</th>
+                    <th class="py-1.5 px-2">MAC / Tipo Equipo</th>
+                    <th class="py-1.5 px-2">Modelo / Fabricante / SO</th>
+                    <th class="py-1.5 px-2">Piso / AP Asociado</th>
+                    <th class="py-1.5 px-2 text-center">Capacidad HW (Capability)</th>
+                    <th class="py-1.5 px-2 text-center">Asociado Hoy / Banda</th>
+                    <th class="py-1.5 px-2 text-center">Data Rate</th>
+                    <th class="py-1.5 px-2 text-right">Tráfico</th>
+                  </tr>
+                </thead>
+                <tbody id="table-compat-clients-body" class="divide-y divide-slate-800/70"></tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      </div>
     </div>
 
     <!-- =================================================================== -->
@@ -1145,6 +1271,6 @@
     </div>
   </div>
 
-  <script src="/static/app.js?v=20261103p"></script>
+  <script src="/static/app.js?v=20261103s"></script>
 </body>
 </html>
